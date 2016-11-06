@@ -30,7 +30,7 @@ class giSignal:
     # ^  : power in ?? domain
     # |  : merge channels       TODO
     def __init__(self, data, samplingRate, iqInterleaved=False, comment=''):
-        
+        data = data.squeeze()
         if iqInterleaved:  # TODO: test with >1 channel
             data = data[0::2] + 1j* data[1::2]
         self._data = data
@@ -44,13 +44,22 @@ class giSignal:
     def nSamples(self):
         return self._data.shape[0]
         
-#    @nSamples.setter
-#   def nSamples(self, nSamplesNew):
-#        if nSamplesNew < self._data.shape[0]:
-#            self._data = self._data[0:nSamplesNew,:]
+    @nSamples.setter
+    def nSamples(self, nSamplesNew):
+        nSamplesNew = int(np.round(nSamplesNew))
+        if nSamplesNew < self.nSamples: # cropping signal
+            self._data = np.delete(self._data, range(nSamplesNew,self.nSamples), 0)
+        elif nSamplesNew > self.nSamples: # adding zeros
+            self._data = np.append(self._data, np.zeros((nSamplesNew - self.nSamples,self.nChannels), dtype=self._data.dtype), 0)
+            
     @property
     def length(self):
         return self.nSamples / self.samplingRate
+
+    @length.setter
+    def length(self, newLength):
+        self.nSamples = np.round(newLength * self.samplingRate)
+
     
     @property
     def nChannels(self):
