@@ -372,7 +372,7 @@ class PlotGUI:
         self.plotDomain = plotDomain
         self.currentDomain = 'None'
         self.updatePlot()
-
+        plt.show()
         
     def keyCallback(self, event):
         print('you pressed', event.key, event.xdata, event.ydata)

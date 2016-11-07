@@ -1,3 +1,6 @@
+#!/usr/bin/python3
+
+# PySPT/install.py:
 # script to add PySPT path to Python search path
 
 import os
