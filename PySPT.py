@@ -7,7 +7,7 @@ Created on Fri Oct 21 14:51:07 2016
 
 TODO:
  - make this a module or a package? 
- - channesl: channelNames, prin in console output, sub reference with .ch()
+ - channels: channelNames, prin in console output, sub reference with .ch()
  - complete all operators
  - call '__new__', by default for obj1 = obj2 ?
 
@@ -15,6 +15,7 @@ TODO:
 """
 
 import numpy as np
+from scipy import signal
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 
@@ -110,13 +111,12 @@ class giSignal:
 
 
 
-
     def plot_time(self, show=True, ax=None, dB=False):
-       if ax == None:
-          ax = plt.gca()
+       # no specific axis => open GUI figure
+       if ax == None:   
+           return PlotGUI(self, plotDomain=['time', 'time_dB'][dB])
     
        ax.xaxis.set_major_formatter( FuncFormatter(giSignal._niceUnitPrefix_formatter) ) 
-
          
        if dB:
          plotData_real = 20*np.log10(np.absolute(np.real(self.timeData)))
@@ -139,13 +139,13 @@ class giSignal:
        plt.title(self.comment)
        if show:
           plt.show()        
-        
+ 
+       
     def plot_freq(self,  show=True, ax=None, dB=True ):
-    
-       if ax == None:
-          ax = plt.gca()
-       # TODO: check if this will work:
-       # ax.xaxis.set_major_formatter( ticksFormatter ) # nice SI unit prefixes
+       # no specific axis => open GUI figure
+       if ax == None:   
+           return PlotGUI(self, plotDomain=['freq', 'freq_dB'][dB])
+           
        ax.xaxis.set_major_formatter( FuncFormatter(giSignal._niceUnitPrefix_formatter) ) 
  
        if dB:
@@ -173,8 +173,43 @@ class giSignal:
        plt.ylabel(yLabelString)	
        plt.title(self.comment)
        if show:
-          plt.show()        
+          plt.show()   
+       
+       
+    def plot_spectrogram(self,  show=True, ax=None, dB=True, nSamplesWindow='auto', windowType=('tukey', 0.25) ):
+       # no specific axis => open GUI figure
+       if ax == None:   
+           return PlotGUI(self, plotDomain=['spec', 'spec_dB'][dB])
 
+       ax.xaxis.set_major_formatter( FuncFormatter(giSignal._niceUnitPrefix_formatter) ) 
+       ax.yaxis.set_major_formatter( FuncFormatter(giSignal._niceUnitPrefix_formatter) ) 
+       if nSamplesWindow == 'auto': # TODO:  convert to lower case
+           nSamplesWindow = np.round(self.nSamples/100) # also limit by min/max
+           
+
+       f, t, Sxx = signal.spectrogram(self.timeData, self.samplingRate, nperseg=nSamplesWindow, window=windowType )
+       
+       f   = np.fft.fftshift(f) # fftshift because pcolor has a problem with not monotonous freqVector       
+       Sxx = np.fft.fftshift(Sxx)
+       
+       cLabelString  = 'magnitude'
+       if dB:
+         Sxx = 20*np.log10(np.absolute(Sxx)) # TODO: check if Sxx is amplitude and not power
+         cLabelString  = 'magintude in dB'
+    
+       pc = plt.pcolormesh(t, f, Sxx, vmax=Sxx.max(), vmin=np.max((Sxx.min(),Sxx.max()-200)) ) 
+       ax.axis((t.min(), t.max(), f.min(), f.max() ))
+       cBar = plt.colorbar()
+       
+       # labels
+       plt.ylabel('Frequency [Hz]')                                             # limit dynamic range to 200 dB
+       plt.xlabel('Time [sec]')
+       cBar.ax.set_ylabel(cLabelString, rotation=90)
+       plt.title(self.comment)
+       
+       if show:
+          plt.show()           
+          
     def plot_time_freq(self, show=True,  time_dB=False, freq_dB=True   ):
           
            plt.figure()
@@ -186,8 +221,6 @@ class giSignal:
            self.plot_freq(show=False, dB=freq_dB )
            if show:
               plt.show()
-
-
 
     def __add__(self,value,  commentSign='+'):
         output = self.copy
@@ -322,3 +355,81 @@ def generateSine(freq=30e3, samplingRate=1e6, nSamples=int(500e3), amplitude=1, 
     sine = giSignal(np.zeros(nSamples), samplingRate, comment='sine [{}Hz]'.format(giSignal._niceUnitPrefix_formatter(freq,0)))
     sine.timeData = np.sin(2*np.pi*freq*sine.timeVector+phaseOffset)
     return sine
+ 
+   
+class PlotGUI:
+    plt.rcParams['keymap.fullscreen'] = ''
+    plt.rcParams['keymap.save'] = ''
+  #  plt.rcParams['toolbar'] = 'None' # no toolbar, it uses too much shortcuts
+    # no mouse over x,y positions without toolbar? TODO: add mouse over event
+    def __init__(self, signalObject, plotDomain='freq_dB'):
+       # with mpl.rc_context({'toolbar':'None'}):  # no toolbar, it uses too much shortcuts
+        self.fgh    = plt.figure(facecolor='0.99') # help to distinguish beween PlotGUI and normal plot
+        plt.suptitle("PySPT GUI")
+        self.axh    = plt.subplot(111)
+        self.cid       = self.fgh.canvas.mpl_connect('key_press_event', self.keyCallback)
+        self.signal = signalObject
+        self.plotDomain = plotDomain
+        self.currentDomain = 'None'
+        self.updatePlot()
+
+        
+    def keyCallback(self, event):
+        print('you pressed', event.key, event.xdata, event.ydata)
+        if event.key == 't':
+            self.plotDomain = 'time'
+            self.updatePlot()
+        elif event.key == 'f':
+            self.plotDomain = 'freq_dB'
+            self.updatePlot()
+        elif event.key == 's':
+            self.plotDomain = 'spec_dB'
+            self.updatePlot()
+        # toggle lin & dB axis    
+        elif event.key == 'd': # or l? or l for legend?
+            self.plotDomain            
+            if self.plotDomain.find('_dB') == -1:  # current lin => switch to dB
+                self.plotDomain += '_dB'
+            else:
+                self.plotDomain = self.plotDomain[:-3]
+            
+            self.plotDomain
+            self.updatePlot()
+   #     elif event.key == 'h':
+            # f freq
+            # t time 
+            # h help
+            # cursors?
+            # legend?
+            # channel prev / next / all?
+            # toggel dB / lin?
+            # set axis limits
+    #    elif event.key == 'down':
+            
+    
+    def updatePlot(self):
+        
+        if self.currentDomain != self.plotDomain:
+            # plt.cla() # cla() doesn't remove colorbar
+            for iAxes in self.fgh.axes:
+                self.fgh.delaxes(iAxes)
+            self.axh = plt.subplot(111)    
+                         
+            # plt.draw() # feedback for user? doesn't work, TODO
+            if self.plotDomain == 'freq_dB':
+                self.signal.plot_freq(show=False, ax=self.axh, dB=True )
+            elif self.plotDomain == 'freq':
+                self.signal.plot_freq(show=False, ax=self.axh, dB=False)
+            elif self.plotDomain == 'time_dB':
+                self.signal.plot_time(show=False, ax=self.axh, dB=True )
+            elif self.plotDomain == 'time':
+                self.signal.plot_time(show=False, ax=self.axh, dB=False)
+            elif self.plotDomain == 'spec_dB':
+                self.signal.plot_spectrogram(show=False, ax=self.axh, dB=True)
+            elif self.plotDomain == 'spec':
+                self.signal.plot_spectrogram(show=False, ax=self.axh, dB=False)
+            else:
+                print("Unkown domain to plot: {}".format(self.plotDomain))
+            
+            plt.draw()    
+    
