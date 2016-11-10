@@ -62,8 +62,54 @@ t = -s
 t = r + s*2
 plt.figure()
 t.plot_time()
-plt.figure()
+
 t.plot_freq()
 
-t
+t.plot_spectrogram()
+
+
+# %%
+
+del sys.modules['PySPT'] 
+import PySPT
+
+dummyData = np.r_[1:6]  /10  +1
+dummyData2ch = np.vstack((dummyData, dummyData+1))
+
+s_1ch = PySPT.giSignal(dummyData, 1, comment="one ch")
+s_2ch =  PySPT.giSignal(dummyData2ch, 1, comment="two channels")
+
+
+tmp = s_2ch | s_2ch
+tmp =s_1ch | s_1ch
+tmp =s_1ch | s_2ch
+
+# set number of samples
+s_2ch.nSamples = 3  # truncate
+s_2ch.nSamples = 11 # add tailing zeros
+
+# set length in seconds
+s_2ch.length = 3.4
+s_2ch.length = 11.5
+
+
+
+# %% how to organize multiple channels ??
+oneCh = np.r_[1:6]  /10  +1
+print("one chanel:\n {}\n  shape: {}\n".format(oneCh, oneCh.shape))
+
+twoCh_v1 = np.vstack((oneCh, oneCh+1))
+print("two chanels version 1:\n {}\n  shape: {}\n".format(twoCh_v1, twoCh_v1.shape))
+# - shape changes
+# + console output looks intuitive
+# + direct access k-th ch with self._data[k-1]  twoCh_v1[1] 
+
+
+twoCh_v2 = np.vstack((oneCh, oneCh+1)).T
+print("two chanels version 2:\n {}\n  shape: {}\n".format(twoCh_v2, twoCh_v2.shape))
+# + first index of shape is always nSamples
+# - console output missleading
+
+
+
 

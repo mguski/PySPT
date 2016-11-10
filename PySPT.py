@@ -22,36 +22,43 @@ from matplotlib.ticker import FuncFormatter
 class giSignal:
     """Class to handle and plot signals """
     # Overloaded operators:
-    #  * : multiply in freq domain (= cyclic convolve)
-    # ** : multiply in time  domain (elementwise)
+    #  * : multiply in freq domain (= cyclic convolve) 
+    # ** : multiply in time  domain (elementwise)  	pow(a, b)
     # /  : division  in freq domain 
-    # // : division in time domain
+    # // : division in time domain   floordiv
     # %  :
-    # &  : append  in time domain
+    # &  : append  in time domain       and_(a, b)
     # ^  : power in ?? domain
-    # |  : merge channels       TODO
+    # |  : merge channels       TODO or_
+    # Right Shift	a >> b	rshift(a, b)
+    # Left Shift	a << b	lshift(a, b)
+    # Indexing	obj[k]	getitem(obj, k)
+    # Indexed Assignment	obj[k] = v	setitem(obj, k, v)
+    # Negation (Arithmetic)	- a	neg(a)
     def __init__(self, data, samplingRate, iqInterleaved=False, comment=''):
-        data = data.squeeze()
-        if iqInterleaved:  # TODO: test with >1 channel
-            data = data[0::2] + 1j* data[1::2]
-        self._data = data
-        self.samplingRate = samplingRate
-        self._domain  = 'time'
-        self.comment = comment
-
+        # np.concatenate if type(data) is list?
+        data = np.matrix(data)
+        if iqInterleaved:  
+            data = data[:,0::2] + 1j* data[:,1::2]
+                
+        self._data         = data
+        self.samplingRate  = samplingRate
+        self._domain       = 'time'
+        self.comment       = comment
+        self._channelNames = ["ch {}".format(iCh) for iCh in range(self.nChannels)]
 
 
     @property    
     def nSamples(self):
-        return self._data.shape[0]
+        return self._data.shape[1]
         
     @nSamples.setter
     def nSamples(self, nSamplesNew):
         nSamplesNew = int(np.round(nSamplesNew))
         if nSamplesNew < self.nSamples: # cropping signal
-            self._data = np.delete(self._data, range(nSamplesNew,self.nSamples), 0)
+            self.timeData = np.delete(self.timeData, range(nSamplesNew,self.nSamples), 1)
         elif nSamplesNew > self.nSamples: # adding zeros
-            self._data = np.append(self._data, np.zeros((nSamplesNew - self.nSamples,self.nChannels), dtype=self._data.dtype), 0)
+            self.timeData = np.append(self.timeData, np.zeros((self.nChannels, nSamplesNew - self.nSamples), dtype=self._data.dtype), 1)
             
     @property
     def length(self):
@@ -64,11 +71,30 @@ class giSignal:
     
     @property
     def nChannels(self):
-        dataShape = self._data.shape
-        if len(dataShape) == 1:
-            return 1
-        else:
-            return dataShape[1]
+        return self._data.shape[0]
+        
+    
+#    @property
+#    def ch(self, channelNumber):
+#        channelNumber = np.array(channelNumber)
+#        if np.any(channelNumber > self.nChannels):
+#            print('Only {} channels. Index out of bounds for {}'.fomrat(self.nChannels, channelNumber))
+#            return
+#        output = self.copy
+#        output._data = output._data[channelNumber]
+#        output.channelNames = [output.channelNames[i] for i in channelNumber]
+#        return output
+
+    @property
+    def channelNames(self):
+        while (len(self._channelNames) < self.nChannels):
+            self._channelNames.append("")
+        return self._channelNames         
+    
+  #  @channelNames.setter
+   # def channelNames(self, name):
+        
+    #    print(name)
         
         
         
@@ -84,31 +110,35 @@ class giSignal:
     @property 
     def timeData(self):
         if self._domain == 'time':
-            return self._data
+            return self._data.copy()
         elif self._domain == 'freq':
             self._data = np.fft.ifft(np.fft.ifftshift(self._data))
             self._domain = 'time'
-            return self._data
+            return self._data.copy()
         else:
             raise ValueError('Unknown domain. Choose time or freq')
-    
+            
     @timeData.setter
     def timeData(self, vec):
-        self._data = vec
+        self._data = np.matrix(vec.copy())
         self._domain = 'time'
     
     
     @property         
     def freqData(self):
         if self._domain == 'freq':
-            return self._data
+            return self._data.copy()
         elif self._domain == 'time':
             self._data = np.fft.fftshift(np.fft.fft(self._data))
             self._domain = 'freq'
-            return self._data
+            return self._data.copy()
         else:
             raise ValueError('Unknown domain. Choose time or freq')
 
+    @freqData.setter
+    def freqData(self, vec):
+        self._data = np.matrix(vec.copy())
+        self._domain = 'freq'
 
 
     def plot_time(self, show=True, ax=None, dB=False):
@@ -127,8 +157,8 @@ class giSignal:
          plotData_imag = np.imag(self.timeData)
          yLabelString  = 'amplitude'
     
-       ax.plot(self.timeVector, plotData_real , label='real', marker=".")
-       ax.plot(self.timeVector, plotData_imag , label='imag', marker=".")
+       ax.plot(self.timeVector, plotData_real.T , label='real', marker=".")
+       ax.plot(self.timeVector, plotData_imag.T , label='imag', marker=".")
     
        ax.grid(True)
        ax.set_xlim([self.timeVector[0], self.timeVector[-1]])
@@ -157,8 +187,8 @@ class giSignal:
          plotData_imag = np.imag(self.freqData)
          yLabelString  = 'magnitude'
     
-       plt.plot(self.freqVector, plotData_real , label='real', marker=".")
-       plt.plot(self.freqVector, plotData_imag , label='imag', marker=".")
+       ax.plot(self.freqVector, plotData_real.T , label='real', marker=".")
+       ax.plot(self.freqVector, plotData_imag.T , label='imag', marker=".")
     
        plt.grid(True)
        ax.set_xlim([self.freqVector[1], self.freqVector[-1]])
@@ -197,7 +227,7 @@ class giSignal:
          Sxx = 20*np.log10(np.absolute(Sxx)) # TODO: check if Sxx is amplitude and not power
          cLabelString  = 'magintude in dB'
     
-       pc = plt.pcolormesh(t, f, Sxx, vmax=Sxx.max(), vmin=np.max((Sxx.min(),Sxx.max()-200)) ) 
+       plt.pcolormesh(t, f, Sxx.squeeze(), vmax=Sxx.max(), vmin=np.max((Sxx.min(),Sxx.max()-200)) ) 
        ax.axis((t.min(), t.max(), f.min(), f.max() ))
        cBar = plt.colorbar()
        
@@ -280,10 +310,21 @@ class giSignal:
             return output
         else:
             raise ValueError('Data type not defined with giSignal')                
-              
+    
+    def __or__(self, secondObj):
+        # _checkCompatibility(self, secondObj) nSamples, samplingRate, sync domains?
+        output = self.copy
+        output._data = np.vstack((self._data, secondObj._data))
+        output._channelNames = self._channelNames + secondObj._channelNames
+        if self.comment != secondObj.comment:
+            output.comment = "(" + self.comment + ") merged with (" + secondObj.comment + ")"
+        return output
+        
+    
+          
     @property
     def copy(self):    
-        return giSignal(self.timeData.copy(), self.samplingRate, comment=self.comment +' (copy)' )
+        return giSignal(self.timeData.copy(), self.samplingRate, comment=self.comment +' (copy)' ) # TODO: keep upto date: channelNames
 
                
     def _niceUnitPrefix_formatter(value, pos):
