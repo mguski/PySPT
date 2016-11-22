@@ -10,14 +10,27 @@ TODO:
  - channels: channelNames, prin in console output, sub reference with .ch()
  - complete all operators
  - call '__new__', by default for obj1 = obj2 ?
-
+ - obj.addChannel() or obbj.appendChannel()
+ - possibility to create empty giSignal (i.e. to use append in loop)
+ - tuncate channels names in __repr__
+ - should giSignal.copy be renamed to deepcopy, to be in accordance with python definitions?
+ - giObj.freqData[0] = np.zeros(11) doen't work but raises no error
+ - add channelUnits
+ - add signalType: 'power' or 'energy' => add fftNorm, change rms()
+ 
 
 """
 
 import numpy as np
+import logging
 from scipy import signal
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
+
+
+import initLogging # TODO: convert PySPT to module and move this to __init__
+
+
 
 class giSignal:
     """Class to handle and plot signals """
@@ -46,6 +59,7 @@ class giSignal:
         self._domain       = 'time'
         self.comment       = comment
         self._channelNames = ["ch {}".format(iCh) for iCh in range(self.nChannels)]
+        self.logger        = logging.getLogger("giSignal")
 
 
     @property    
@@ -91,9 +105,9 @@ class giSignal:
             self._channelNames.append("")
         return self._channelNames         
     
-  #  @channelNames.setter
-   # def channelNames(self, name):
-        
+    @channelNames.setter
+    def channelNames(self, names):
+        self._channelNames = names
     #    print(name)
         
         
@@ -107,16 +121,41 @@ class giSignal:
     def freqVector(self):
         return np.fft.fftshift(np.fft.fftfreq(self.nSamples, 1/self.samplingRate ))
     
+    # convert internal data to frequency domain
+    # freqData is effective value (not amplitude) for power signals (energy not supported TODO )
+    def fft(self):
+        if self._domain == 'time':
+            self._data = np.matrix(np.fft.fftshift(np.fft.fft(self._data))) / self.nSamples / np.sqrt(2) # TODO: don't scale DC value??
+            self._domain = 'freq'
+            self.logger.info('fft: changing _domain from time to freq')
+        elif self._domain == 'freq':
+            self.logger.debug('fft: _domain is already freq, doing nothing')
+        else:
+            self.logger.error('fft: Unknown domain: {}. Choose time or freq'.format(self._domain))            
+            raise ValueError('Unknown domain: {}. Choose time or freq'.format(self._domain))        
+    
+    # convert internal data into time domain
+    def ifft(self):
+        if self._domain == 'freq':
+            self._data = np.matrix(np.fft.ifft(np.fft.ifftshift(self._data))) * self.nSamples * np.sqrt(2) # TODO:don't scale DC value?
+            self._domain = 'time'
+            self.logger.info('ifft: changing _domain from freq to time')
+        elif self._domain == 'time':
+            self.logger.debug('fft: _domain is already time, doing nothing')
+        else:
+            self.logger.error('fft: Unknown domain: {}. Choose time or freq'.format(self._domain))            
+            raise ValueError('Unknown domain: {}. Choose time or freq'.format(self._domain))      
+    @property 
+    def timeData_reference(self):
+        self.ifft()
+        return self._data
+    
+    
     @property 
     def timeData(self):
-        if self._domain == 'time':
-            return self._data.copy()
-        elif self._domain == 'freq':
-            self._data = np.fft.ifft(np.fft.ifftshift(self._data))
-            self._domain = 'time'
-            return self._data.copy()
-        else:
-            raise ValueError('Unknown domain. Choose time or freq')
+        self.ifft()
+        return self._data.copy()
+
             
     @timeData.setter
     def timeData(self, vec):
@@ -125,15 +164,15 @@ class giSignal:
     
     
     @property         
+    def freqData_reference(self):
+        self.fft()
+        return self._data
+        
+    @property         
     def freqData(self):
-        if self._domain == 'freq':
-            return self._data.copy()
-        elif self._domain == 'time':
-            self._data = np.fft.fftshift(np.fft.fft(self._data))
-            self._domain = 'freq'
-            return self._data.copy()
-        else:
-            raise ValueError('Unknown domain. Choose time or freq')
+        self.fft()
+        return self._data.copy()
+
 
     @freqData.setter
     def freqData(self, vec):
@@ -265,7 +304,7 @@ class giSignal:
                 raise ValueError('Sampling rates do not match. Unable to add.')
             if self.nSamples != value.nSamples:
                 raise ValueError('Number of samples do not match. Unable to add.')
-            self.timeData += value.timeData
+            self.timeData = self.timeData + value.timeData
             self.comment = '(' + self.comment + ') '+ commentSign +' (' + value.comment + ')'
             return self
         elif isinstance(value, (np.int, float)):
@@ -311,6 +350,7 @@ class giSignal:
         else:
             raise ValueError('Data type not defined with giSignal')                
     
+    # merge tow objects into one with multiple channels
     def __or__(self, secondObj):
         # _checkCompatibility(self, secondObj) nSamples, samplingRate, sync domains?
         output = self.copy
@@ -319,9 +359,32 @@ class giSignal:
         if self.comment != secondObj.comment:
             output.comment = "(" + self.comment + ") merged with (" + secondObj.comment + ")"
         return output
-        
+
+     # add all channel of one object into one
+    def sum(self):
+         if self.nChannels > 1:
+             self._data = np.sum(self._data, axis=0)
+         else:
+             self.logger.warning('sum is doing nothing, only one channel')
     
-          
+    # calculate root mean square for continous waveform 
+    def rms(self):
+
+        if self._domain == 'freq':
+            # time: sqrt( 1/T *int(|s(t)|**2)) = sqrt( 1/T * sum(|s(n) * deltaT |**2)) with deltaT = 1 / samplingRate
+            rmsValues  = np.sqrt(np.sum(np.absolute(np.power(self._data ,2)), axis=1 )/self.length) 
+             #            np.sqrt(np.sum(np.array(np.absolute(tmp.freqData) )**2 )*tmp.samplingRate/tmp.nSamples)
+            self.logger.info('rms in time domain')
+        elif self._domain == 'time':
+            rmsValues  = np.sqrt(np.sum(np.absolute(np.power(self._data ,2)), axis=1)/self.length/self.samplingRate)
+             #            np.sqrt(np.sum(np.absolute(np.power(tmp._data  ,2)), axis=1 )/tmp.length /tmp.samplingRate )
+            self.logger.info('rms in freq domain')
+        else:
+            raise ValueError('Unknown domain') 
+           
+        return np.array(rmsValues).squeeze()
+
+#np.sqrt(np.sum(np.array(np.absolute(tmp.freqData) )**2 )*tmp.samplingRate/tmp.nSamples)
     @property
     def copy(self):    
         return giSignal(self.timeData.copy(), self.samplingRate, comment=self.comment +' (copy)' ) # TODO: keep upto date: channelNames
@@ -391,12 +454,45 @@ class giSignal:
              'comment',
              'copy']
 
-        
-def generateSine(freq=30e3, samplingRate=1e6, nSamples=int(500e3), amplitude=1, phaseOffset=0):
+# TOOLS:        
+def generateSine(freq=30e3, samplingRate=1e6, nSamples=int(500e3), amplitude=1.0, phaseOffset=0):
     sine = giSignal(np.zeros(nSamples), samplingRate, comment='sine [{}Hz]'.format(giSignal._niceUnitPrefix_formatter(freq,0)))
-    sine.timeData = np.sin(2*np.pi*freq*sine.timeVector+phaseOffset)
+    sine.timeData = np.float128(amplitude) * np.sin(2*np.pi*freq*sine.timeVector+phaseOffset)
     return sine
+    
+    # merge list of giSignal objects into one with multiple channels
+def merge(listOfgiSignals):
+    nItems = len(listOfgiSignals)
+    output = listOfgiSignals[0]
+    for iItem in range(1,nItems):
+        output |= listOfgiSignals[iItem]
+    return output
  
+def time_shift(obj, shiftTime, cyclic=True):
+    nSamples = np.int(np.round(shiftTime*obj.samplingRate))
+    output = sample_shift(obj, nSamples, cyclic=cyclic)
+    return output
+        
+def sample_shift(obj, nSamples, cyclic=True):
+    nSamples = int(nSamples)
+    output = obj.copy
+    if cyclic:
+        output.timeData = np.roll(output.timeData, -nSamples, axis=1)
+    else:
+        if nSamples < 0: 
+            # output.timeData[:, nSamples:] = 0 # TODO find out how to make this!
+            output.nSamples = obj.nSamples+nSamples
+            output.nSamples = obj.nSamples
+            output.timeData = np.roll(output.timeData, -nSamples, axis=1)
+        else:
+            output.timeData = output.timeData[:, nSamples:]        
+        
+    return output
+   
+   
+   
+   
+   
    
 class PlotGUI:
     plt.rcParams['keymap.fullscreen'] = ''
