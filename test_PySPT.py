@@ -111,8 +111,7 @@ t.plot_spectrogram()
 
 # %%
 
-del sys.modules['PySPT'] 
-import PySPT
+
 
 dummyData = np.r_[1:6]  /10  +1
 dummyData2ch = np.vstack((dummyData, dummyData+1))
@@ -172,6 +171,22 @@ plt.title('cyclic shift -40 sec')
 sig2 = PySPT.time_shift(sig, -40, cyclic=False)
 sig2.plot_time(ax=plt.subplot(5,2,10))
 plt.title('shift -40 sec')
+
+# %%
+del sys.modules['PySPT'] 
+import PySPT
+allSig = []
+
+
+for iSig in range(10):
+    allSig.append(PySPT.generateSine(freq=100*iSig+100, samplingRate=5000, nSamples=10e3))
+
+multCh = PySPT.merge(allSig)
+plt.figure()
+temp = np.absolute(np.array(multCh.freqData_reference))
+zeros = np.zeros_like(temp)
+zeros[0] = temp[0]
+plt.pcolormesh(zeros)
 
 # %% how to organize multiple channels ??
 oneCh = np.r_[1:6]  /10  +1

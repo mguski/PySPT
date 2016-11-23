@@ -125,7 +125,7 @@ class giSignal:
     # freqData is effective value (not amplitude) for power signals (energy not supported TODO )
     def fft(self):
         if self._domain == 'time':
-            self._data = np.matrix(np.fft.fftshift(np.fft.fft(self._data))) / self.nSamples / np.sqrt(2) # TODO: don't scale DC value??
+            self._data = np.matrix(np.fft.fftshift(np.fft.fft(self._data), axes=1)) / self.nSamples / np.sqrt(2) # TODO: don't scale DC value??
             self._domain = 'freq'
             self.logger.info('fft: changing _domain from time to freq')
         elif self._domain == 'freq':
@@ -137,7 +137,7 @@ class giSignal:
     # convert internal data into time domain
     def ifft(self):
         if self._domain == 'freq':
-            self._data = np.matrix(np.fft.ifft(np.fft.ifftshift(self._data))) * self.nSamples * np.sqrt(2) # TODO:don't scale DC value?
+            self._data = np.matrix(np.fft.ifft(np.fft.ifftshift(self._data, axes=1))) * self.nSamples * np.sqrt(2) # TODO:don't scale DC value?
             self._domain = 'time'
             self.logger.info('ifft: changing _domain from freq to time')
         elif self._domain == 'time':
