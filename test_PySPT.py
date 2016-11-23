@@ -6,6 +6,7 @@ Created on Wed Nov 2 09:11:11 2016
 """
 
 
+
 # %% first time call
 import PySPT
 import numpy as np
@@ -47,7 +48,7 @@ if not r.timeData_reference is t.timeData_reference:
 
 # %% fft / ifft 
 
-r = PySPT.generateSine()
+r = PySPT.generateSine() | PySPT.generateSine(freq=10e3)
 t = r.copy
 
 t.fft()
@@ -176,17 +177,38 @@ plt.title('shift -40 sec')
 del sys.modules['PySPT'] 
 import PySPT
 allSig = []
-
-
 for iSig in range(10):
-    allSig.append(PySPT.generateSine(freq=100*iSig+100, samplingRate=5000, nSamples=10e3))
+    allSig.append(PySPT.generateSine(freq=10*iSig+10, samplingRate=500, nSamples=1e3))
 
 multCh = PySPT.merge(allSig)
+
+# %%
 plt.figure()
-temp = np.absolute(np.array(multCh.freqData_reference))
+freqVec = np.fft.fftfreq(multCh.nSamples, 1/multCh.samplingRate)
+plt.pcolor( np.array(np.absolute(np.fft.fftshift(np.fft.fft(multCh.timeData), axes=1))))
+
+plt.figure()
+temp = np.absolute(np.array(multCh.freqData_reference.T))
 zeros = np.zeros_like(temp)
-zeros[0] = temp[0]
+
 plt.pcolormesh(zeros)
+plt.plot(multCh.freqVector, temp)
+
+# %% resample
+
+sig = PySPT.generateSine() + PySPT.generateNoise()*(1/80)
+
+sig3 = PySPT.resample(sig, 500e3)
+sig3 = PySPT.resample(sig, 2e6)
+
+
+# %% frequency mixer
+
+mixingFreq = 200e3
+inputSignal = PySPT.generateSine() #+ PySPT.generateNoise()*(1/80)
+outputSignal2 = PySPT.frequencyMixer(inputSignal, mixingFreq)
+outputSignal2.plot_freq()
+
 
 # %% how to organize multiple channels ??
 oneCh = np.r_[1:6]  /10  +1

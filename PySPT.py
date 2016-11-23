@@ -349,7 +349,8 @@ class giSignal:
             return output
         else:
             raise ValueError('Data type not defined with giSignal')                
-    
+  
+  
     # merge tow objects into one with multiple channels
     def __or__(self, secondObj):
         # _checkCompatibility(self, secondObj) nSamples, samplingRate, sync domains?
@@ -387,7 +388,7 @@ class giSignal:
 #np.sqrt(np.sum(np.array(np.absolute(tmp.freqData) )**2 )*tmp.samplingRate/tmp.nSamples)
     @property
     def copy(self):    
-        return giSignal(self.timeData.copy(), self.samplingRate, comment=self.comment +' (copy)' ) # TODO: keep upto date: channelNames
+        return giSignal(self.timeData.copy(), self.samplingRate, comment=self.comment ) # TODO: keep upto date: channelNames
 
                
     def _niceUnitPrefix_formatter(value, pos):
@@ -455,10 +456,18 @@ class giSignal:
              'copy']
 
 # TOOLS:        
-def generateSine(freq=30e3, samplingRate=1e6, nSamples=int(500e3), amplitude=1.0, phaseOffset=0):
-    sine = giSignal(np.zeros(nSamples), samplingRate, comment='sine [{}Hz]'.format(giSignal._niceUnitPrefix_formatter(freq,0)))
+def generateSine(freq=30e3, samplingRate=1e6, nSamples=500e3, amplitude=1.0, phaseOffset=0):
+    name ='sine [{}Hz]'.format(giSignal._niceUnitPrefix_formatter(freq,0))    
+    sine = giSignal(np.zeros(int(nSamples)), samplingRate, comment=name)
     sine.timeData = np.float128(amplitude) * np.sin(2*np.pi*freq*sine.timeVector+phaseOffset)
+    sine.channelNames = name
     return sine
+
+def generateNoise(samplingRate=1e6, nSamples=int(500e3), scale=1.0, mean=0):
+    name = 'gaussian noise ({}, {})'.format(mean, scale)
+    noise = giSignal(np.random.normal(loc=mean, scale=scale, size=nSamples), samplingRate, comment=name)
+    noise.channelNames = name
+    return noise
     
     # merge list of giSignal objects into one with multiple channels
 def merge(listOfgiSignals):
@@ -486,10 +495,33 @@ def sample_shift(obj, nSamples, cyclic=True):
             output.timeData = np.roll(output.timeData, -nSamples, axis=1)
         else:
             output.timeData = output.timeData[:, nSamples:]        
-        
     return output
-   
-   
+    
+def resample(obj, newSamplingRate, method='fft', window=None): 
+   # resample signal in frequency domain,
+   output = obj.copy
+   if method.lower() == 'fft':
+       output.timeData = signal.resample(output.timeData, int(output.nSamples/obj.samplingRate*newSamplingRate), axis=1, window=window)
+       output.samplingRate = newSamplingRate
+       return output
+   elif method.lower() == 'poly':
+       raise ValueError("methof poly not tested") # TODO: (implement and) test 
+       from fractions import Fraction
+       frac = Fraction(newSamplingRate/obj.samplingRate).limit_denominator(100)
+       num = frac.numerator
+       den = frac.denominator
+       if num/den != newSamplingRate/obj.samplingRate:
+           print("resampling not exact, error {} % ")
+       output.timeData = signal.resample_poly(output.timeData, num, den, axis=1, window=('kaiser', 5.0))
+       output.samplingRate *= num/den
+       return output
+   else:
+       raise ValueError("unknown vaule for method: {} (fft or poly possible)".format(method))
+       
+def frequencyMixer(inputSignal, mixingFrequency):
+    outputSignal = inputSignal.copy
+    outputSignal.timeData = np.multiply( outputSignal.timeData, np.exp(1j*2*np.pi*mixingFrequency*outputSignal.timeVector))
+    return outputSignal
    
    
    
