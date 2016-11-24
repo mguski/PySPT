@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 # reload file 
 del sys.modules['PySPT'] 
 import PySPT
-
+help(PySPT)
 
 
 sr = 10000
@@ -32,7 +32,7 @@ r = PySPT.giSignal(vec*2, sr, comment='sine test signal 2')
 # s.plot_freq()
 
 # %% copy / reference 
-r = PySPT.generateSine()
+r = PySPT.generate_sine()
 t = r.copy # return a copy
 
 if  not (r.timeData == t.timeData).all():
@@ -48,7 +48,7 @@ if not r.timeData_reference is t.timeData_reference:
 
 # %% fft / ifft 
 
-r = PySPT.generateSine() | PySPT.generateSine(freq=10e3)
+r = PySPT.generate_sine() | PySPT.generate_sine(freq=10e3)
 t = r.copy
 
 t.fft()
@@ -59,12 +59,12 @@ if  np.max(np.absolute(a.timeData)) > 1e-14:
     a.plot_time()
     raise ValueError('fft => ifft does not result in same values!')
 
-# TODO: why this doesn't work?
+
 a = r - t
 
 
 # %% check rms() results
-tmp = PySPT.generateSine(amplitude=1)
+tmp = PySPT.generate_sine(amplitude=1)
 if tmp.rms() - np.sqrt(0.5) > 1e-15:
     raise ValueError('rms in time domain wrong')
 tmp.fft()
@@ -74,8 +74,8 @@ if tmp.rms() - np.sqrt(0.5) > 1e-15:
 
 # %% surface test if opertrs can be called without error
 
-r = PySPT.generateSine()
-s = PySPT.generateSine(freq=500)
+r = PySPT.generate_sine()
+s = PySPT.generate_sine(freq=500)
 
 t = s.copy
 
@@ -173,30 +173,17 @@ sig2 = PySPT.time_shift(sig, -40, cyclic=False)
 sig2.plot_time(ax=plt.subplot(5,2,10))
 plt.title('shift -40 sec')
 
-# %%
-del sys.modules['PySPT'] 
-import PySPT
+# %% test merge of list with signals
+
 allSig = []
 for iSig in range(10):
-    allSig.append(PySPT.generateSine(freq=10*iSig+10, samplingRate=500, nSamples=1e3))
+    allSig.append(PySPT.generate_sine(freq=10*iSig+10, samplingRate=500, nSamples=1e3))
 
 multCh = PySPT.merge(allSig)
 
-# %%
-plt.figure()
-freqVec = np.fft.fftfreq(multCh.nSamples, 1/multCh.samplingRate)
-plt.pcolor( np.array(np.absolute(np.fft.fftshift(np.fft.fft(multCh.timeData), axes=1))))
+# %% test resampling
 
-plt.figure()
-temp = np.absolute(np.array(multCh.freqData_reference.T))
-zeros = np.zeros_like(temp)
-
-plt.pcolormesh(zeros)
-plt.plot(multCh.freqVector, temp)
-
-# %% resample
-
-sig = PySPT.generateSine() + PySPT.generateNoise()*(1/80)
+sig = PySPT.generate_sine() + PySPT.generate_noise()*(1/80)
 
 sig3 = PySPT.resample(sig, 500e3)
 sig3 = PySPT.resample(sig, 2e6)
@@ -205,8 +192,8 @@ sig3 = PySPT.resample(sig, 2e6)
 # %% frequency mixer
 
 mixingFreq = 200e3
-inputSignal = PySPT.generateSine() #+ PySPT.generateNoise()*(1/80)
-outputSignal2 = PySPT.frequencyMixer(inputSignal, mixingFreq)
+inputSignal = PySPT.generate_sine() #+ PySPT.generateNoise()*(1/80)
+outputSignal2 = PySPT.frequency_mixer(inputSignal, mixingFreq)
 outputSignal2.plot_freq()
 
 

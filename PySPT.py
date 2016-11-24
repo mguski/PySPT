@@ -1,13 +1,21 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Oct 21 14:51:07 2016
+Python Signal Processing Toolbox
 
-@author: mguski
+Python toolbox to visualize, analyze and manipulate digital signal. The primary 
+focus is on a higher level of abstraction rather than performance aspects or 
+even real time capability. 
+
+@author: mguski@alaska.edu
 
 
-TODO:
+"""
+
+"""
+TODOs:
  - make this a module or a package? 
- - channels: channelNames, prin in console output, sub reference with .ch()
+ - apply python naming: ClassNames, function_names, CONSTANT_VALUES, modules, packages (PEP8 Style Guide for Python)
+ - channels: channelNames, print in console output, sub reference with .ch()
  - complete all operators
  - call '__new__', by default for obj1 = obj2 ?
  - obj.addChannel() or obbj.appendChannel()
@@ -28,26 +36,37 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 
 
-import initLogging # TODO: convert PySPT to module and move this to __init__
+import init_logging # TODO: convert PySPT to module and move this to __init__
 
 
 
 class giSignal:
-    """Class to handle and plot signals """
-    # Overloaded operators:
-    #  * : multiply in freq domain (= cyclic convolve) 
-    # ** : multiply in time  domain (elementwise)  	pow(a, b)
-    # /  : division  in freq domain 
-    # // : division in time domain   floordiv
-    # %  :
-    # &  : append  in time domain       and_(a, b)
-    # ^  : power in ?? domain
-    # |  : merge channels       TODO or_
-    # Right Shift	a >> b	rshift(a, b)
-    # Left Shift	a << b	lshift(a, b)
-    # Indexing	obj[k]	getitem(obj, k)
-    # Indexed Assignment	obj[k] = v	setitem(obj, k, v)
-    # Negation (Arithmetic)	- a	neg(a)
+    """Class to handle signals including meta data.
+    
+        Internal the signal data is stored in only one domain (time or frequency)
+        and is transformed if necessary. Multiple operators are overloaded and can 
+        be used with two objects or scalar values:
+        
+           Overloaded operators:
+             +   : addition     ( objA + objB or objA + 10)
+             -   : subtraction  ( objA - objB or objA - 10)
+             |   : merge of channel  (twoChannlObj = oneChObj | otherChObj )
+             *   : multiplication with scalar
+             
+             NOT IMPLEMENTED
+             *   : multiplication in freq domain (= cyclic convolve) 
+             **  : multiply in time  domain (elementwise)  	pow(a, b)
+             /   : division  in freq domain 
+             //  : division in time domain   floordiv
+             %   :
+             &   : append  in time domain       and_(a, b)
+             ^   : power in ?? domain
+             Right Shift	a >> b	rshift(a, b)
+             Left Shift	a << b	lshift(a, b)
+             Indexing	obj[k]	getitem(obj, k)
+             Indexed Assignment	obj[k] = v	setitem(obj, k, v)
+             Negation (Arithmetic)	- a	neg(a)
+    """
     def __init__(self, data, samplingRate, iqInterleaved=False, comment=''):
         # np.concatenate if type(data) is list?
         data = np.matrix(data)
@@ -64,6 +83,7 @@ class giSignal:
 
     @property    
     def nSamples(self):
+        """ Number of samples in signal for each channel. Setting this value results in truncation or zero padding."""
         return self._data.shape[1]
         
     @nSamples.setter
@@ -76,6 +96,7 @@ class giSignal:
             
     @property
     def length(self):
+        """ Length of signal in seconds. Setting this value results in truncation or zero padding."""
         return self.nSamples / self.samplingRate
 
     @length.setter
@@ -85,6 +106,7 @@ class giSignal:
     
     @property
     def nChannels(self):
+        """ Number of channels. """
         return self._data.shape[0]
         
     
@@ -101,6 +123,7 @@ class giSignal:
 
     @property
     def channelNames(self):
+        """ List of strings to describe each channel. """
         while (len(self._channelNames) < self.nChannels):
             self._channelNames.append("")
         return self._channelNames         
@@ -108,22 +131,24 @@ class giSignal:
     @channelNames.setter
     def channelNames(self, names):
         self._channelNames = names
-    #    print(name)
+
         
-        
-        
-    
     @property    
     def timeVector(self):
+        """ Time vector in seconds. Calculated each time using nSamples and samplingRate."""
         return np.array([ t / self.samplingRate for t in range(self.nSamples) ])
     
     @property     
     def freqVector(self):
+        """ Frequency vector in Hz. Calculated each time using nSamples and samplingRate."""
         return np.fft.fftshift(np.fft.fftfreq(self.nSamples, 1/self.samplingRate ))
     
     # convert internal data to frequency domain
     # freqData is effective value (not amplitude) for power signals (energy not supported TODO )
     def fft(self):
+        """ Function transforms internal _data into frequency domain (if necessary). 
+            Applies  fft norm for power signals so that spectrum gives rms values.
+            """
         if self._domain == 'time':
             self._data = np.matrix(np.fft.fftshift(np.fft.fft(self._data), axes=1)) / self.nSamples / np.sqrt(2) # TODO: don't scale DC value??
             self._domain = 'freq'
@@ -136,6 +161,7 @@ class giSignal:
     
     # convert internal data into time domain
     def ifft(self):
+        """ Function transforms internal _data into time domain (if necessary). """
         if self._domain == 'freq':
             self._data = np.matrix(np.fft.ifft(np.fft.ifftshift(self._data, axes=1))) * self.nSamples * np.sqrt(2) # TODO:don't scale DC value?
             self._domain = 'time'
@@ -145,18 +171,21 @@ class giSignal:
         else:
             self.logger.error('fft: Unknown domain: {}. Choose time or freq'.format(self._domain))            
             raise ValueError('Unknown domain: {}. Choose time or freq'.format(self._domain))      
-    @property 
-    def timeData_reference(self):
-        self.ifft()
-        return self._data
+
     
     
     @property 
     def timeData(self):
+        """ Returns copy of signal data in time domain. Output is matrix of size nChannels x nSamples. """
         self.ifft()
         return self._data.copy()
 
-            
+    @property 
+    def timeData_reference(self):
+        """ Returns reference of signal data in time domain. Output is matrix of size nChannels x nSamples. """
+        self.ifft()
+        return self._data
+ 
     @timeData.setter
     def timeData(self, vec):
         self._data = np.matrix(vec.copy())
@@ -165,14 +194,15 @@ class giSignal:
     
     @property         
     def freqData_reference(self):
+        """ Returns reference of signal data in frequency domain. Output is matrix of size nChannels x nSamples. """
         self.fft()
         return self._data
         
     @property         
     def freqData(self):
+        """ Returns copy of signal data in frequency domain. Output is matrix of size nChannels x nSamples. """
         self.fft()
         return self._data.copy()
-
 
     @freqData.setter
     def freqData(self, vec):
@@ -181,8 +211,8 @@ class giSignal:
 
 
     def plot_time(self, show=True, ax=None, dB=False):
-       # no specific axis => open GUI figure
-       if ax == None:   
+       """ Plots signal in time domain (using PlotGUI class)."""
+       if ax is None:   
            return PlotGUI(self, plotDomain=['time', 'time_dB'][dB])
     
        ax.xaxis.set_major_formatter( FuncFormatter(giSignal._niceUnitPrefix_formatter) ) 
@@ -211,8 +241,8 @@ class giSignal:
  
        
     def plot_freq(self,  show=True, ax=None, dB=True ):
-       # no specific axis => open GUI figure
-       if ax == None:   
+       """ Plots signal in frequency domain (using PlotGUI class)."""
+       if ax is None:   
            return PlotGUI(self, plotDomain=['freq', 'freq_dB'][dB])
            
        ax.xaxis.set_major_formatter( FuncFormatter(giSignal._niceUnitPrefix_formatter) ) 
@@ -246,8 +276,8 @@ class giSignal:
        
        
     def plot_spectrogram(self,  show=True, ax=None, dB=True, nSamplesWindow='auto', windowType=('tukey', 0.25) ):
-       # no specific axis => open GUI figure
-       if ax == None:   
+       """ Plots signal as spectrogram (using PlotGUI class)."""
+       if ax is None:   
            return PlotGUI(self, plotDomain=['spec', 'spec_dB'][dB])
 
        ax.xaxis.set_major_formatter( FuncFormatter(giSignal._niceUnitPrefix_formatter) ) 
@@ -279,21 +309,20 @@ class giSignal:
        if show:
           plt.show()           
           
-    def plot_time_freq(self, show=True,  time_dB=False, freq_dB=True   ):
-          
-           plt.figure()
-           plt.subplot(121)
-           self.plot_time(show=False, dB=time_dB )
-        
-           plt.subplot(122)
-        
-           self.plot_freq(show=False, dB=freq_dB )
-           if show:
-              plt.show()
+    def plot_time_freq(self, show=True,  time_dB=False, freq_dB=True ):
+        """ Plots signal in time and frequency domain (using PlotGUI class)."""
+        plt.figure()
+        plt.subplot(121)
+        self.plot_time(show=False, dB=time_dB )
+    
+        plt.subplot(122)
+    
+        self.plot_freq(show=False, dB=freq_dB )
+        if show:
+           plt.show()
 
     def __add__(self,value,  commentSign='+'):
         output = self.copy
-        output.comment = output.comment[:-6] # remove "(copy)"
         output.__iadd__( value, commentSign)  # call __iadd__
         return output 
        
@@ -308,7 +337,7 @@ class giSignal:
             self.comment = '(' + self.comment + ') '+ commentSign +' (' + value.comment + ')'
             return self
         elif isinstance(value, (np.int, float)):
-            self.timeData +=  value # TODO: default is time domain? or use current domain?
+            self.timeData = self.timeData + value # TODO: default is time domain? or use current domain?
             self.comment = '(' + self.comment + ') '+ commentSign + ' ' + str(abs(value))
             return self
         elif isinstance(value, (np.complex)):
@@ -344,15 +373,16 @@ class giSignal:
             return output
         elif isinstance(value, (np.int, float, np.complex)):
             output = self.copy
-            output.timeData *= value 
+            output._data = output._data  * value 
             output.comment = '(' + self.comment + ') '+ commentSign + ' ' + str(value)
             return output
         else:
             raise ValueError('Data type not defined with giSignal')                
   
   
-    # merge tow objects into one with multiple channels
+
     def __or__(self, secondObj):
+        """ Merge two objects into one with multiple channels. c = a | b """
         # _checkCompatibility(self, secondObj) nSamples, samplingRate, sync domains?
         output = self.copy
         output._data = np.vstack((self._data, secondObj._data))
@@ -361,16 +391,24 @@ class giSignal:
             output.comment = "(" + self.comment + ") merged with (" + secondObj.comment + ")"
         return output
 
-     # add all channel of one object into one
+
+    def __getitem__(self, index):
+        # TODO: reference or copy? refernece possible? obj[2] *=2 ??
+        output = self.copy
+        
+        
+        
+     
     def sum(self):
+         """ Sums up all channel of one object. """
          if self.nChannels > 1:
              self._data = np.sum(self._data, axis=0)
          else:
              self.logger.warning('sum is doing nothing, only one channel')
     
-    # calculate root mean square for continous waveform 
+    
     def rms(self):
-
+        """ Calculates root mean square (for continous waveform). """
         if self._domain == 'freq':
             # time: sqrt( 1/T *int(|s(t)|**2)) = sqrt( 1/T * sum(|s(n) * deltaT |**2)) with deltaT = 1 / samplingRate
             rmsValues  = np.sqrt(np.sum(np.absolute(np.power(self._data ,2)), axis=1 )/self.length) 
@@ -387,11 +425,13 @@ class giSignal:
 
 #np.sqrt(np.sum(np.array(np.absolute(tmp.freqData) )**2 )*tmp.samplingRate/tmp.nSamples)
     @property
-    def copy(self):    
+    def copy(self):
+        """ Returns a deep(?) copy of the object."""
         return giSignal(self.timeData.copy(), self.samplingRate, comment=self.comment ) # TODO: keep upto date: channelNames
 
                
     def _niceUnitPrefix_formatter(value, pos):
+        """ Formater function to retun string with SI unit prefixes (kilo, Mega,...) """
         if value == 0:
             return '0'
         
@@ -409,7 +449,8 @@ class giSignal:
         
         
         
-    def __repr__(self):       
+    def __repr__(self):  
+        """ Shows content summary for console output. """
         strTemplate = '| {:>16} : {:<76} |\n'
         classContendStr  = '\n=='    
         classContendStr += '| {} Object: |{:=>78}'.format(self.__class__.__name__, '\n')
@@ -456,21 +497,24 @@ class giSignal:
              'copy']
 
 # TOOLS:        
-def generateSine(freq=30e3, samplingRate=1e6, nSamples=500e3, amplitude=1.0, phaseOffset=0):
+def generate_sine(freq=30e3, samplingRate=1e6, nSamples=500e3, amplitude=1.0, phaseOffset=0):
+    """ Generates sine signal. """
     name ='sine [{}Hz]'.format(giSignal._niceUnitPrefix_formatter(freq,0))    
     sine = giSignal(np.zeros(int(nSamples)), samplingRate, comment=name)
     sine.timeData = np.float128(amplitude) * np.sin(2*np.pi*freq*sine.timeVector+phaseOffset)
     sine.channelNames = name
     return sine
 
-def generateNoise(samplingRate=1e6, nSamples=int(500e3), scale=1.0, mean=0):
+def generate_noise(samplingRate=1e6, nSamples=int(500e3), scale=1.0, mean=0):
+    """ Generates white Gaussian noise signal. """
     name = 'gaussian noise ({}, {})'.format(mean, scale)
     noise = giSignal(np.random.normal(loc=mean, scale=scale, size=nSamples), samplingRate, comment=name)
     noise.channelNames = name
     return noise
     
-    # merge list of giSignal objects into one with multiple channels
+    
 def merge(listOfgiSignals):
+    """ Merges list of giSignal objects into one object with multiple channels. """
     nItems = len(listOfgiSignals)
     output = listOfgiSignals[0]
     for iItem in range(1,nItems):
@@ -478,11 +522,13 @@ def merge(listOfgiSignals):
     return output
  
 def time_shift(obj, shiftTime, cyclic=True):
+    """ Applies time shift to signal that outSig(t) = inSig(t - shiftTime). """
     nSamples = np.int(np.round(shiftTime*obj.samplingRate))
     output = sample_shift(obj, nSamples, cyclic=cyclic)
     return output
         
 def sample_shift(obj, nSamples, cyclic=True):
+    """ Applies sample shift to signal that outSig[n] = inSig[n - nSamples]. """
     nSamples = int(nSamples)
     output = obj.copy
     if cyclic:
@@ -498,7 +544,7 @@ def sample_shift(obj, nSamples, cyclic=True):
     return output
     
 def resample(obj, newSamplingRate, method='fft', window=None): 
-   # resample signal in frequency domain,
+   """ Resamples signal to obtain newSamplingRate. Only fft method tested jet..."""
    output = obj.copy
    if method.lower() == 'fft':
        output.timeData = signal.resample(output.timeData, int(output.nSamples/obj.samplingRate*newSamplingRate), axis=1, window=window)
@@ -518,7 +564,8 @@ def resample(obj, newSamplingRate, method='fft', window=None):
    else:
        raise ValueError("unknown vaule for method: {} (fft or poly possible)".format(method))
        
-def frequencyMixer(inputSignal, mixingFrequency):
+def frequency_mixer(inputSignal, mixingFrequency):
+    """ Apply up/down mixing with mixingFrequency. """
     outputSignal = inputSignal.copy
     outputSignal.timeData = np.multiply( outputSignal.timeData, np.exp(1j*2*np.pi*mixingFrequency*outputSignal.timeVector))
     return outputSignal
@@ -527,6 +574,13 @@ def frequencyMixer(inputSignal, mixingFrequency):
    
    
 class PlotGUI:
+    """ Class to plot giSignals.
+            Shortcuts:
+              t  : plot linear time domain 
+              f  : plot frequency domain in dB
+              s  : plot spectrogramm in dB
+              d  : toggel betwenn linear and dB
+              """
     plt.rcParams['keymap.fullscreen'] = ''
     plt.rcParams['keymap.save'] = ''
   #  plt.rcParams['toolbar'] = 'None' # no toolbar, it uses too much shortcuts
@@ -536,14 +590,14 @@ class PlotGUI:
         self.fgh    = plt.figure(facecolor='0.99') # help to distinguish beween PlotGUI and normal plot
         plt.suptitle("PySPT GUI")
         self.axh    = plt.subplot(111)
-        self.cid       = self.fgh.canvas.mpl_connect('key_press_event', self.keyCallback)
+        self.cid       = self.fgh.canvas.mpl_connect('key_press_event', self._keyCallback)
         self.signal = signalObject
         self.plotDomain = plotDomain
         self.currentDomain = 'None'
         self.updatePlot()
         plt.show()
         
-    def keyCallback(self, event):
+    def _keyCallback(self, event):
         print('you pressed', event.key, event.xdata, event.ydata)
         if event.key == 't':
             self.plotDomain = 'time'
@@ -554,13 +608,14 @@ class PlotGUI:
         elif event.key == 's':
             self.plotDomain = 'spec_dB'
             self.updatePlot()
+        
         # toggle lin & dB axis    
         elif event.key == 'd': # or l? or l for legend?
             self.plotDomain            
-            if self.plotDomain.find('_dB') == -1:  # current lin => switch to dB
-                self.plotDomain += '_dB'
-            else:
+            if self.plotDomain.endswith('_dB'):  # current dB => switch to lin
                 self.plotDomain = self.plotDomain[:-3]
+            else:
+                self.plotDomain += '_dB'
             
             self.plotDomain
             self.updatePlot()
