@@ -15,6 +15,8 @@ even real time capability.
 TODOs:
  - make this a module or a package? 
  - apply python naming: ClassNames, function_names, CONSTANT_VALUES, modules, packages (PEP8 Style Guide for Python)
+ - rename module to pyspt
+ - add to __init__ pyspt = PySPT (or PySPT = pyspt )
  - channels: channelNames, print in console output, sub reference with .ch()
  - complete all operators
  - call '__new__', by default for obj1 = obj2 ?
@@ -142,6 +144,29 @@ class giSignal:
     def freqVector(self):
         """ Frequency vector in Hz. Calculated each time using nSamples and samplingRate."""
         return np.fft.fftshift(np.fft.fftfreq(self.nSamples, 1/self.samplingRate ))
+        
+    def time2index(self, time):
+        """ Returns the index of the sample to the given time."""
+        if time > self.length:
+            self.logger.warning("time2index: requested time ({}) is larger than signal length ({})! Returning nSamples.".format(time, self.length))
+            return self.nSamples
+        if time < 0:
+            self.logger.warning("time2index: requested time ({}) is negative! Returning zero.".format(time))
+            return 0            
+        return int(np.round(time * self.samplingRate))
+        
+    def freq2index(self, freq):
+        """ Returns the index of the sample to the given frequency."""
+        if freq > self.samplingRate / 2 :
+            self.logger.warning("freq2index: requested frequency ({}) is higher than half sampling rate ({})! Returning half sampling rate.".format(freq, self.samplingRate/2))
+            return self.samplingRate / 2
+        if freq <  -self.samplingRate / 2 :
+            self.logger.warning("freq2index: requested frequency ({}) is lower than half sampling rate ({})! Returning minus half sampling rate.".format(freq, self.samplingRate/2))
+            return -self.samplingRate / 2
+        return int(np.argmin(abs(self.freqVector - np.array(freq)))) # TODO: calculate directly without generating freqVector
+        
+
+
     
     # convert internal data to frequency domain
     # freqData is effective value (not amplitude) for power signals (energy not supported TODO )
@@ -198,6 +223,12 @@ class giSignal:
         self.fft()
         return self._data
         
+    @freqData_reference.setter         
+    def freqData_reference(self, freqData):
+        self._data = np.matrix(freqData)
+        self._domain = 'freq'       
+        
+        
     @property         
     def freqData(self):
         """ Returns copy of signal data in frequency domain. Output is matrix of size nChannels x nSamples. """
@@ -225,15 +256,19 @@ class giSignal:
          plotData_real = np.real(self.timeData)
          plotData_imag = np.imag(self.timeData)
          yLabelString  = 'amplitude'
-    
-       ax.plot(self.timeVector, plotData_real.T , label='real', marker=".")
-       ax.plot(self.timeVector, plotData_imag.T , label='imag', marker=".")
+       # TODO:
+         # - dont plot imag if  == 0
+         # - change oder to re im re im, 
+         # - re, im with same colors but different lineStyle
+         # - set legend labels later at once
+       ax.plot(self.timeVector, plotData_real.T  , marker=".")
+       ax.plot(self.timeVector, plotData_imag.T , marker=".", lineStyle="dotted")
     
        ax.grid(True)
        ax.set_xlim([self.timeVector[0], self.timeVector[-1]])
        ax.set
        plt.xlabel('time in s')
-       plt.legend(loc=0)
+       plt.legend([ chName+post for post in [' (real)' , ' (imag)' ] for chName in self.channelNames], loc=0)
        plt.ylabel(yLabelString)	
        plt.title(self.comment)
        if show:
@@ -385,12 +420,25 @@ class giSignal:
         """ Merge two objects into one with multiple channels. c = a | b """
         # _checkCompatibility(self, secondObj) nSamples, samplingRate, sync domains?
         output = self.copy
-        output._data = np.vstack((self._data, secondObj._data))
-        output._channelNames = self._channelNames + secondObj._channelNames
-        if self.comment != secondObj.comment:
-            output.comment = "(" + self.comment + ") merged with (" + secondObj.comment + ")"
+        print("output: {}, obj : {}".format(output._domain, secondObj._domain))
+        output._sync_domains(secondObj)
+        print("output: {}, obj : {}".format(output._domain, secondObj._domain))
+        output._data = np.vstack((output._data, secondObj._data.copy()))
+        output._channelNames = output._channelNames + secondObj._channelNames
+        if output.comment != secondObj.comment:
+            output.comment = "(" + output.comment + ") merged with (" + secondObj.comment + ")"
         return output
-
+        
+    def _sync_domains(self, obj2):
+        """ Changes the domain of calling object to second object. """
+        if self._domain != obj2._domain:
+            if obj2._domain == "time":
+                self.ifft()
+            elif obj2._domain == "freq":
+                self.fft()
+            else:
+                raise ValueError("Unknown domain: {}. Can not sync domains.".format(self._domain))
+            
 
     def __getitem__(self, index):
         # TODO: reference or copy? refernece possible? obj[2] *=2 ??
@@ -502,14 +550,14 @@ def generate_sine(freq=30e3, samplingRate=1e6, nSamples=500e3, amplitude=1.0, ph
     name ='sine [{}Hz]'.format(giSignal._niceUnitPrefix_formatter(freq,0))    
     sine = giSignal(np.zeros(int(nSamples)), samplingRate, comment=name)
     sine.timeData = np.float128(amplitude) * np.sin(2*np.pi*freq*sine.timeVector+phaseOffset)
-    sine.channelNames = name
+    sine.channelNames = [name]
     return sine
 
 def generate_noise(samplingRate=1e6, nSamples=int(500e3), scale=1.0, mean=0):
     """ Generates white Gaussian noise signal. """
     name = 'gaussian noise ({}, {})'.format(mean, scale)
     noise = giSignal(np.random.normal(loc=mean, scale=scale, size=nSamples), samplingRate, comment=name)
-    noise.channelNames = name
+    noise.channelNames = [name]
     return noise
     
     
@@ -523,25 +571,40 @@ def merge(listOfgiSignals):
  
 def time_shift(obj, shiftTime, cyclic=True):
     """ Applies time shift to signal that outSig(t) = inSig(t - shiftTime). """
-    nSamples = np.int(np.round(shiftTime*obj.samplingRate))
+    nSamples = np.round(shiftTime*obj.samplingRate)
     output = sample_shift(obj, nSamples, cyclic=cyclic)
     return output
         
 def sample_shift(obj, nSamples, cyclic=True):
     """ Applies sample shift to signal that outSig[n] = inSig[n - nSamples]. """
-    nSamples = int(nSamples)
-    output = obj.copy
-    if cyclic:
-        output.timeData = np.roll(output.timeData, -nSamples, axis=1)
-    else:
-        if nSamples < 0: 
-            # output.timeData[:, nSamples:] = 0 # TODO find out how to make this!
-            output.nSamples = obj.nSamples+nSamples
-            output.nSamples = obj.nSamples
+    output = obj.copy    
+    
+    # nSamples one value => same shift for all channels
+    if isinstance(nSamples, np.int) or isinstance(nSamples, np.float) or nSamples.size == 1:
+        nSamples = int(nSamples)
+        if cyclic:
             output.timeData = np.roll(output.timeData, -nSamples, axis=1)
         else:
-            output.timeData = output.timeData[:, nSamples:]        
-    return output
+            if nSamples < 0:  # add leading zeros
+                output.timeData = np.concatenate((np.zeros((obj.nChannels, -nSamples)), obj.timeData_reference ), axis=1)
+            else:   # truncate first part
+                output.timeData = output.timeData[:, nSamples:]        
+        return output
+    # each channel individual shift    
+    elif np.array(nSamples).size == obj.nChannels:
+        tData_ref = output.timeData_reference
+        for iChannel in range(obj.nChannels):
+            if cyclic:
+                tData_ref[iChannel,:] = np.roll(output.timeData[iChannel, :], -int(nSamples[iChannel]), axis=1)
+            else:
+                obj.logger.error("time/sample_shift: only cyclic shifts are supported for individual shifts of channels.")  # TODO: smarter way than calling two functions with same input?
+                raise ValueError("time/sample_shift: only cyclic shifts are supported for individual shifts of channels.")
+        return output
+        
+        
+    else:
+        obj.logger.error("time/sample_shift: invalid input! size of shift time/samples has to be 1 or nSamples.")  # TODO: smarter way than calling two functions with same input?
+        raise ValueError("time/sample_shift: invalid input! size of shift time/samples has to be 1 or nSamples.")
     
 def resample(obj, newSamplingRate, method='fft', window=None): 
    """ Resamples signal to obtain newSamplingRate. Only fft method tested jet..."""

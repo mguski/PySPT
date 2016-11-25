@@ -46,6 +46,20 @@ t = r # now t is only a new reference
 if not r.timeData_reference is t.timeData_reference:
     raise ValueError('error a = b  returns no reference!')
 
+# %%  timevector, freqVector, freq2index, time2index
+
+r = PySPT.generate_sine()
+
+r.timeVector
+r.freqVector
+
+testIdx = 1234
+if r.time2index(r.timeVector[testIdx]) != testIdx:
+    raise ValueError('time2index did not result in correct value')
+if r.freq2index(r.freqVector[testIdx]) != testIdx:
+    raise ValueError('freq2index did not result in correct value')
+
+
 # %% fft / ifft 
 
 r = PySPT.generate_sine() | PySPT.generate_sine(freq=10e3)
@@ -141,6 +155,7 @@ s_2ch.length = 11.5
 # %% time shifting
 plt.figure()
 sig =  PySPT.giSignal(range(101),1)
+sig |= sig
 sig.plot_time(ax=plt.subplot(511))
 plt.title('original')
 
@@ -173,6 +188,16 @@ sig2 = PySPT.time_shift(sig, -40, cyclic=False)
 sig2.plot_time(ax=plt.subplot(5,2,10))
 plt.title('shift -40 sec')
 
+# %%
+del sys.modules['PySPT'] 
+import PySPT
+
+
+sig =  PySPT.giSignal(range(101),1)
+sig |= sig
+
+sig2 = PySPT.time_shift(sig, [-10, 10], )
+sig2.plot_time()
 # %% test merge of list with signals
 
 allSig = []
