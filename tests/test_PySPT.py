@@ -8,16 +8,18 @@ Created on Wed Nov 2 09:11:11 2016
 
 
 # %% first time call
-import PySPT
+import pyspt
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
 # %%
 
 # reload file 
-del sys.modules['PySPT'] 
-import PySPT
-help(PySPT)
+del sys.modules['pyspt'] 
+import pyspt
+help(pyspt)
+
+# %%
 
 
 sr = 10000
@@ -25,14 +27,14 @@ phi = [ 2*np.pi*30*t / sr for t in range(3002) ]
 # vec = np.sin(2*np.pi*30*tVec)
 vec = np.sin(phi)+0.00
 
-s = PySPT.giSignal(vec, sr, comment='sine test signal')
-r = PySPT.giSignal(vec*2, sr, comment='sine test signal 2')
+s = pyspt.Signal(vec, sr, comment='sine test signal')
+r = pyspt.Signal(vec*2, sr, comment='sine test signal 2')
 
 #s.plot_time_freq()
 # s.plot_freq()
 
 # %% copy / reference 
-r = PySPT.generate_sine()
+r = pyspt.generate_sine()
 t = r.copy # return a copy
 
 if  not (r.timeData == t.timeData).all():
@@ -48,7 +50,7 @@ if not r.timeData_reference is t.timeData_reference:
 
 # %%  timevector, freqVector, freq2index, time2index
 
-r = PySPT.generate_sine()
+r = pyspt.generate_sine()
 
 r.timeVector
 r.freqVector
@@ -62,7 +64,7 @@ if r.freq2index(r.freqVector[testIdx]) != testIdx:
 
 # %% fft / ifft 
 
-r = PySPT.generate_sine() | PySPT.generate_sine(freq=10e3)
+r = pyspt.generate_sine() | pyspt.generate_sine(freq=10e3)
 t = r.copy
 
 t.fft()
@@ -78,7 +80,7 @@ a = r - t
 
 
 # %% check rms() results
-tmp = PySPT.generate_sine(amplitude=1)
+tmp = pyspt.generate_sine(amplitude=1)
 if tmp.rms() - np.sqrt(0.5) > 1e-15:
     raise ValueError('rms in time domain wrong')
 tmp.fft()
@@ -88,8 +90,8 @@ if tmp.rms() - np.sqrt(0.5) > 1e-15:
 
 # %% surface test if opertrs can be called without error
 
-r = PySPT.generate_sine()
-s = PySPT.generate_sine(freq=500)
+r = pyspt.generate_sine()
+s = pyspt.generate_sine(freq=500)
 
 t = s.copy
 
@@ -131,8 +133,8 @@ t.plot_spectrogram()
 dummyData = np.r_[1:6]  /10  +1
 dummyData2ch = np.vstack((dummyData, dummyData+1))
 
-s_1ch = PySPT.giSignal(dummyData, 1, comment="one ch")
-s_2ch =  PySPT.giSignal(dummyData2ch, 1, comment="two channels")
+s_1ch = pyspt.Signal(dummyData, 1, comment="one ch")
+s_2ch =  pyspt.Signal(dummyData2ch, 1, comment="two channels")
 
 
 tmp = s_2ch | s_2ch
@@ -153,72 +155,89 @@ s_2ch.length = 11.5
 
 
 # %% time shifting
+% matplotlib
+
 plt.figure()
-sig =  PySPT.giSignal(range(101),1)
+sig =  pyspt.Signal(range(101),1)
 sig |= sig
 sig.plot_time(ax=plt.subplot(511))
 plt.title('original')
 
-sig2 = PySPT.sample_shift(sig, 20, cyclic=True)
+sig2 = pyspt.dsp.sample_shift(sig, 20, cyclic=True)
 sig2.plot_time(ax=plt.subplot(523))
 plt.title('cyclic shift +20 samples')
-sig2 = PySPT.sample_shift(sig, 20, cyclic=False)
+sig2 = pyspt.dsp.sample_shift(sig, 20, cyclic=False)
 sig2.plot_time(ax=plt.subplot(524))
 plt.title('shift +20 samples')
 
-sig2 = PySPT.sample_shift(sig, -20, cyclic=True)
+sig2 = pyspt.dsp.sample_shift(sig, -20, cyclic=True)
 sig2.plot_time(ax=plt.subplot(525))
 plt.title('cyclic shift -20 samples')
-sig2 = PySPT.sample_shift(sig, -20, cyclic=False)
+sig2 = pyspt.dsp.sample_shift(sig, -20, cyclic=False)
 sig2.plot_time(ax=plt.subplot(526))
 plt.title('shift -20 samples')
 
-sig2 = PySPT.time_shift(sig, 40, cyclic=True)
+sig2 = pyspt.dsp.time_shift(sig, 40, cyclic=True)
 sig2.plot_time(ax=plt.subplot(527))
 plt.title('cyclic shift 40 sec')
-sig2 = PySPT.time_shift(sig, 40, cyclic=False)
+sig2 = pyspt.dsp.time_shift(sig, 40, cyclic=False)
 sig2.plot_time(ax=plt.subplot(528))
 plt.title('shift 40 sec')
 
 
-sig2 = PySPT.time_shift(sig, -40, cyclic=True)
+sig2 = pyspt.dsp.time_shift(sig, -40, cyclic=True)
 sig2.plot_time(ax=plt.subplot(529))
 plt.title('cyclic shift -40 sec')
-sig2 = PySPT.time_shift(sig, -40, cyclic=False)
+sig2 = pyspt.dsp.time_shift(sig, -40, cyclic=False)
 sig2.plot_time(ax=plt.subplot(5,2,10))
 plt.title('shift -40 sec')
 
 # %%
-del sys.modules['PySPT'] 
-import PySPT
+
+del sys.modules['pyspt'] 
+import pyspt
+
+n = pyspt.generate_noise()
 
 
-sig =  PySPT.giSignal(range(101),1)
+# %%
+del sys.modules['pyspt'] 
+import pyspt
+
+
+sig =  pyspt.Signal(range(101),1)
 sig |= sig
 
-sig2 = PySPT.time_shift(sig, [-10, 10], )
+sig2 = pyspt.dsp.time_shift(sig, [-10, 10], )
 sig2.plot_time()
 # %% test merge of list with signals
 
 allSig = []
 for iSig in range(10):
-    allSig.append(PySPT.generate_sine(freq=10*iSig+10, samplingRate=500, nSamples=1e3))
+    allSig.append(pyspt.generate_sine(freq=10*iSig+10, samplingRate=500, nSamples=1e3))
 
-multCh = PySPT.merge(allSig)
+multCh = pyspt.merge(allSig)
 
+
+# %%
+
+sine = pyspt.generate_sine(freq=3e3, samplingRate=10e3, nSamples=10e3)
+
+sineH = pyspt.dsp.hilbert_transform(sine)
+sine.plot_freq()
 # %% test resampling
 
-sig = PySPT.generate_sine() + PySPT.generate_noise()*(1/80)
+sig = pyspt.generate_sine() + pyspt.generate_noise()*(1/80)
 
-sig3 = PySPT.resample(sig, 500e3)
-sig3 = PySPT.resample(sig, 2e6)
+sig3 = pyspt.dsp.resample(sig, 500e3)
+sig3 = pyspt.dsp.resample(sig, 2e6)
 
 
 # %% frequency mixer
 
 mixingFreq = 200e3
-inputSignal = PySPT.generate_sine() #+ PySPT.generateNoise()*(1/80)
-outputSignal2 = PySPT.frequency_mixer(inputSignal, mixingFreq)
+inputSignal = pyspt.generate_sine() #+ pyspt.generateNoise()*(1/80)
+outputSignal2 = pyspt.dsp.frequency_mixer(inputSignal, mixingFreq)
 outputSignal2.plot_freq()
 
 

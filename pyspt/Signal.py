@@ -1,48 +1,34 @@
 # -*- coding: utf-8 -*-
 """
-Python Signal Processing Toolbox
+Created on Fri Nov 25 15:02:42 2016
 
-Python toolbox to visualize, analyze and manipulate digital signal. The primary 
-focus is on a higher level of abstraction rather than performance aspects or 
-even real time capability. 
+@author: mguski
 
-@author: mguski@alaska.edu
-
-
-"""
-
-"""
 TODOs:
- - make this a module or a package? 
- - apply python naming: ClassNames, function_names, CONSTANT_VALUES, modules, packages (PEP8 Style Guide for Python)
- - rename module to pyspt
- - add to __init__ pyspt = PySPT (or PySPT = pyspt )
  - channels: channelNames, print in console output, sub reference with .ch()
  - complete all operators
  - call '__new__', by default for obj1 = obj2 ?
  - obj.addChannel() or obbj.appendChannel()
- - possibility to create empty giSignal (i.e. to use append in loop)
+ - possibility to create empty Signal (i.e. to use append in loop)
  - tuncate channels names in __repr__
- - should giSignal.copy be renamed to deepcopy, to be in accordance with python definitions?
- - giObj.freqData[0] = np.zeros(11) doen't work but raises no error
+ - should Signal.copy be renamed to deepcopy, to be in accordance with python definitions?
+ - giObj.freqData[0] = np.zeros(1) doen't work but raises no error
  - add channelUnits
  - add signalType: 'power' or 'energy' => add fftNorm, change rms()
- 
 
 """
+ 
 
 import numpy as np
 import logging
-from scipy import signal
+from scipy import signal as scipySignal
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 
-
-import init_logging # TODO: convert PySPT to module and move this to __init__
-
+from .PlotGUI import PlotGUI
 
 
-class giSignal:
+class Signal:
     """Class to handle signals including meta data.
     
         Internal the signal data is stored in only one domain (time or frequency)
@@ -80,7 +66,7 @@ class giSignal:
         self._domain       = 'time'
         self.comment       = comment
         self._channelNames = ["ch {}".format(iCh) for iCh in range(self.nChannels)]
-        self.logger        = logging.getLogger("giSignal")
+        self.logger        = logging.getLogger("Signal")
 
 
     @property    
@@ -246,7 +232,7 @@ class giSignal:
        if ax is None:   
            return PlotGUI(self, plotDomain=['time', 'time_dB'][dB])
     
-       ax.xaxis.set_major_formatter( FuncFormatter(giSignal._niceUnitPrefix_formatter) ) 
+       ax.xaxis.set_major_formatter( FuncFormatter(Signal._niceUnitPrefix_formatter) ) 
          
        if dB:
          plotData_real = 20*np.log10(np.absolute(np.real(self.timeData)))
@@ -280,7 +266,7 @@ class giSignal:
        if ax is None:   
            return PlotGUI(self, plotDomain=['freq', 'freq_dB'][dB])
            
-       ax.xaxis.set_major_formatter( FuncFormatter(giSignal._niceUnitPrefix_formatter) ) 
+       ax.xaxis.set_major_formatter( FuncFormatter(Signal._niceUnitPrefix_formatter) ) 
  
        if dB:
          plotData_real = 20*np.log10(np.absolute(np.real(self.freqData)))
@@ -315,13 +301,13 @@ class giSignal:
        if ax is None:   
            return PlotGUI(self, plotDomain=['spec', 'spec_dB'][dB])
 
-       ax.xaxis.set_major_formatter( FuncFormatter(giSignal._niceUnitPrefix_formatter) ) 
-       ax.yaxis.set_major_formatter( FuncFormatter(giSignal._niceUnitPrefix_formatter) ) 
+       ax.xaxis.set_major_formatter( FuncFormatter(Signal._niceUnitPrefix_formatter) ) 
+       ax.yaxis.set_major_formatter( FuncFormatter(Signal._niceUnitPrefix_formatter) ) 
        if nSamplesWindow == 'auto': # TODO:  convert to lower case
            nSamplesWindow = np.round(self.nSamples/100) # also limit by min/max
            
 
-       f, t, Sxx = signal.spectrogram(self.timeData, self.samplingRate, nperseg=nSamplesWindow, window=windowType )
+       f, t, Sxx = scipySignal.spectrogram(self.timeData, self.samplingRate, nperseg=nSamplesWindow, window=windowType )
        
        f   = np.fft.fftshift(f) # fftshift because pcolor has a problem with not monotonous freqVector       
        Sxx = np.fft.fftshift(Sxx)
@@ -362,7 +348,7 @@ class giSignal:
         return output 
        
     def __iadd__(self, value, commentSign='+'):
-        if type(value) is giSignal:
+        if type(value) is Signal:
             # TODO: export to separate function, do in current domain, if domains equal
             if self.samplingRate != value.samplingRate:
                 raise ValueError('Sampling rates do not match. Unable to add.')
@@ -380,7 +366,7 @@ class giSignal:
             self.comment = '(' + self.comment + ') + ' + str((value))
             return self
         else:
-            raise ValueError('Data type not defined with giSignal')            
+            raise ValueError('Data type not defined with Signal')            
             
             
     def __sub__(self, value):
@@ -393,7 +379,7 @@ class giSignal:
         return self * -1
 
     def __mul__(self, value, commentSign='*'):
-        if type(value) is giSignal:
+        if type(value) is Signal:
             raise ValueError('TODO: think about domain!')
 
             
@@ -412,7 +398,7 @@ class giSignal:
             output.comment = '(' + self.comment + ') '+ commentSign + ' ' + str(value)
             return output
         else:
-            raise ValueError('Data type not defined with giSignal')                
+            raise ValueError('Data type not defined with Signal')                
   
   
 
@@ -420,9 +406,7 @@ class giSignal:
         """ Merge two objects into one with multiple channels. c = a | b """
         # _checkCompatibility(self, secondObj) nSamples, samplingRate, sync domains?
         output = self.copy
-        print("output: {}, obj : {}".format(output._domain, secondObj._domain))
         output._sync_domains(secondObj)
-        print("output: {}, obj : {}".format(output._domain, secondObj._domain))
         output._data = np.vstack((output._data, secondObj._data.copy()))
         output._channelNames = output._channelNames + secondObj._channelNames
         if output.comment != secondObj.comment:
@@ -475,7 +459,7 @@ class giSignal:
     @property
     def copy(self):
         """ Returns a deep(?) copy of the object."""
-        return giSignal(self.timeData.copy(), self.samplingRate, comment=self.comment ) # TODO: keep upto date: channelNames
+        return Signal(self.timeData.copy(), self.samplingRate, comment=self.comment ) # TODO: keep upto date: channelNames
 
                
     def _niceUnitPrefix_formatter(value, pos):
@@ -505,10 +489,10 @@ class giSignal:
         classContendStr += strTemplate.format('', '' )    
         classContendStr += strTemplate.format( 'nSamples',      self.nSamples)
         
-        samplingRateStr = giSignal._niceUnitPrefix_formatter(self.samplingRate,0)
+        samplingRateStr = Signal._niceUnitPrefix_formatter(self.samplingRate,0)
         classContendStr += strTemplate.format( 'samplingRate',  samplingRateStr[:-1] + ' ' + samplingRateStr[-1] + 'Hz' )
         
-        lengthStr = giSignal._niceUnitPrefix_formatter(self.length ,0)
+        lengthStr = Signal._niceUnitPrefix_formatter(self.length ,0)
         classContendStr += strTemplate.format( 'length',  lengthStr[:-1] + ' ' + lengthStr[-1] + 's' )
         classContendStr += strTemplate.format( 'nChannels',     self.nChannels)
         classContendStr += strTemplate.format( 'comment',     self.comment)
@@ -543,180 +527,3 @@ class giSignal:
              'nChannels',
              'comment',
              'copy']
-
-# TOOLS:        
-def generate_sine(freq=30e3, samplingRate=1e6, nSamples=500e3, amplitude=1.0, phaseOffset=0):
-    """ Generates sine signal. """
-    name ='sine [{}Hz]'.format(giSignal._niceUnitPrefix_formatter(freq,0))    
-    sine = giSignal(np.zeros(int(nSamples)), samplingRate, comment=name)
-    sine.timeData = np.float128(amplitude) * np.sin(2*np.pi*freq*sine.timeVector+phaseOffset)
-    sine.channelNames = [name]
-    return sine
-
-def generate_noise(samplingRate=1e6, nSamples=int(500e3), scale=1.0, mean=0):
-    """ Generates white Gaussian noise signal. """
-    name = 'gaussian noise ({}, {})'.format(mean, scale)
-    noise = giSignal(np.random.normal(loc=mean, scale=scale, size=nSamples), samplingRate, comment=name)
-    noise.channelNames = [name]
-    return noise
-    
-    
-def merge(listOfgiSignals):
-    """ Merges list of giSignal objects into one object with multiple channels. """
-    nItems = len(listOfgiSignals)
-    output = listOfgiSignals[0]
-    for iItem in range(1,nItems):
-        output |= listOfgiSignals[iItem]
-    return output
- 
-def time_shift(obj, shiftTime, cyclic=True):
-    """ Applies time shift to signal that outSig(t) = inSig(t - shiftTime). """
-    nSamples = np.round(shiftTime*obj.samplingRate)
-    output = sample_shift(obj, nSamples, cyclic=cyclic)
-    return output
-        
-def sample_shift(obj, nSamples, cyclic=True):
-    """ Applies sample shift to signal that outSig[n] = inSig[n - nSamples]. """
-    output = obj.copy    
-    
-    # nSamples one value => same shift for all channels
-    if isinstance(nSamples, np.int) or isinstance(nSamples, np.float) or nSamples.size == 1:
-        nSamples = int(nSamples)
-        if cyclic:
-            output.timeData = np.roll(output.timeData, -nSamples, axis=1)
-        else:
-            if nSamples < 0:  # add leading zeros
-                output.timeData = np.concatenate((np.zeros((obj.nChannels, -nSamples)), obj.timeData_reference ), axis=1)
-            else:   # truncate first part
-                output.timeData = output.timeData[:, nSamples:]        
-        return output
-    # each channel individual shift    
-    elif np.array(nSamples).size == obj.nChannels:
-        tData_ref = output.timeData_reference
-        for iChannel in range(obj.nChannels):
-            if cyclic:
-                tData_ref[iChannel,:] = np.roll(output.timeData[iChannel, :], -int(nSamples[iChannel]), axis=1)
-            else:
-                obj.logger.error("time/sample_shift: only cyclic shifts are supported for individual shifts of channels.")  # TODO: smarter way than calling two functions with same input?
-                raise ValueError("time/sample_shift: only cyclic shifts are supported for individual shifts of channels.")
-        return output
-        
-        
-    else:
-        obj.logger.error("time/sample_shift: invalid input! size of shift time/samples has to be 1 or nSamples.")  # TODO: smarter way than calling two functions with same input?
-        raise ValueError("time/sample_shift: invalid input! size of shift time/samples has to be 1 or nSamples.")
-    
-def resample(obj, newSamplingRate, method='fft', window=None): 
-   """ Resamples signal to obtain newSamplingRate. Only fft method tested jet..."""
-   output = obj.copy
-   if method.lower() == 'fft':
-       output.timeData = signal.resample(output.timeData, int(output.nSamples/obj.samplingRate*newSamplingRate), axis=1, window=window)
-       output.samplingRate = newSamplingRate
-       return output
-   elif method.lower() == 'poly':
-       raise ValueError("methof poly not tested") # TODO: (implement and) test 
-       from fractions import Fraction
-       frac = Fraction(newSamplingRate/obj.samplingRate).limit_denominator(100)
-       num = frac.numerator
-       den = frac.denominator
-       if num/den != newSamplingRate/obj.samplingRate:
-           print("resampling not exact, error {} % ")
-       output.timeData = signal.resample_poly(output.timeData, num, den, axis=1, window=('kaiser', 5.0))
-       output.samplingRate *= num/den
-       return output
-   else:
-       raise ValueError("unknown vaule for method: {} (fft or poly possible)".format(method))
-       
-def frequency_mixer(inputSignal, mixingFrequency):
-    """ Apply up/down mixing with mixingFrequency. """
-    outputSignal = inputSignal.copy
-    outputSignal.timeData = np.multiply( outputSignal.timeData, np.exp(1j*2*np.pi*mixingFrequency*outputSignal.timeVector))
-    return outputSignal
-   
-   
-   
-   
-class PlotGUI:
-    """ Class to plot giSignals.
-            Shortcuts:
-              t  : plot linear time domain 
-              f  : plot frequency domain in dB
-              s  : plot spectrogramm in dB
-              d  : toggel betwenn linear and dB
-              """
-    plt.rcParams['keymap.fullscreen'] = ''
-    plt.rcParams['keymap.save'] = ''
-  #  plt.rcParams['toolbar'] = 'None' # no toolbar, it uses too much shortcuts
-    # no mouse over x,y positions without toolbar? TODO: add mouse over event
-    def __init__(self, signalObject, plotDomain='freq_dB'):
-       # with mpl.rc_context({'toolbar':'None'}):  # no toolbar, it uses too much shortcuts
-        self.fgh    = plt.figure(facecolor='0.99') # help to distinguish beween PlotGUI and normal plot
-        plt.suptitle("PySPT GUI")
-        self.axh    = plt.subplot(111)
-        self.cid       = self.fgh.canvas.mpl_connect('key_press_event', self._keyCallback)
-        self.signal = signalObject
-        self.plotDomain = plotDomain
-        self.currentDomain = 'None'
-        self.updatePlot()
-        plt.show()
-        
-    def _keyCallback(self, event):
-        print('you pressed', event.key, event.xdata, event.ydata)
-        if event.key == 't':
-            self.plotDomain = 'time'
-            self.updatePlot()
-        elif event.key == 'f':
-            self.plotDomain = 'freq_dB'
-            self.updatePlot()
-        elif event.key == 's':
-            self.plotDomain = 'spec_dB'
-            self.updatePlot()
-        
-        # toggle lin & dB axis    
-        elif event.key == 'd': # or l? or l for legend?
-            self.plotDomain            
-            if self.plotDomain.endswith('_dB'):  # current dB => switch to lin
-                self.plotDomain = self.plotDomain[:-3]
-            else:
-                self.plotDomain += '_dB'
-            
-            self.plotDomain
-            self.updatePlot()
-   #     elif event.key == 'h':
-            # f freq
-            # t time 
-            # h help
-            # cursors?
-            # legend?
-            # channel prev / next / all?
-            # toggel dB / lin?
-            # set axis limits
-    #    elif event.key == 'down':
-            
-    
-    def updatePlot(self):
-        
-        if self.currentDomain != self.plotDomain:
-            # plt.cla() # cla() doesn't remove colorbar
-            for iAxes in self.fgh.axes:
-                self.fgh.delaxes(iAxes)
-            self.axh = plt.subplot(111)    
-                         
-            # plt.draw() # feedback for user? doesn't work, TODO
-            if self.plotDomain == 'freq_dB':
-                self.signal.plot_freq(show=False, ax=self.axh, dB=True )
-            elif self.plotDomain == 'freq':
-                self.signal.plot_freq(show=False, ax=self.axh, dB=False)
-            elif self.plotDomain == 'time_dB':
-                self.signal.plot_time(show=False, ax=self.axh, dB=True )
-            elif self.plotDomain == 'time':
-                self.signal.plot_time(show=False, ax=self.axh, dB=False)
-            elif self.plotDomain == 'spec_dB':
-                self.signal.plot_spectrogram(show=False, ax=self.axh, dB=True)
-            elif self.plotDomain == 'spec':
-                self.signal.plot_spectrogram(show=False, ax=self.axh, dB=False)
-            else:
-                print("Unkown domain to plot: {}".format(self.plotDomain))
-            
-            plt.draw()    
-    
