@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 """
+Some unittests for pyspt. Most test just check for occurring runtime errors.
+Only a few check for correct results...
+
 Created on Fri Nov 25 18:27:42 2016
 
 @author: mguski
@@ -25,21 +28,111 @@ assertNotIsInstance(a, b)  not isinstance(a, b)
 
 import unittest
 import numpy as np
-
+import matplotlib.pyplot as plt
 import pyspt
 
-
+@unittest.skip("skipping plot test since every figure has to be closed by hand")
+class TestPlotFunctions(unittest.TestCase):
+ 
+    def test_plot_time(self):
+        r = pyspt.generate_sine()
+        r.plot_time(show=False)
+        
+    def test_freq_time(self):
+        r = pyspt.generate_sine()
+        r.plot_freq(show=False)
+        
+    def test_spectrogram_time(self):
+        r = pyspt.generate_sine()
+        r.plot_spectrogram(show=False)
+        
 
 
 
 class TestDSPfunctions(unittest.TestCase):
 
     def test_hilbert(self):
-        sine = pyspt.generate_sine(freq=3e3, samplingRate=10e3, nSamples=10e3)
-        
+        sine = pyspt.generate_sine(freq=3, samplingRate=10e3, nSamples=10e3)
         sineH = pyspt.dsp.hilbert_transform(sine)
         
+    def test_resample(self):
+        sig = pyspt.generate_sine() + pyspt.generate_noise()*(1/80)
 
+        sig3 = pyspt.dsp.resample(sig, 500e3)
+        self.assertEqual(sig3.samplingRate, 500e3)
+        self.assertEqual(sig.length, sig3.length)
+        
+        sig3 = pyspt.dsp.resample(sig, 2e6)
+        self.assertEqual(sig3.samplingRate, 2e6)
+        self.assertEqual(sig.length, sig3.length)
+        
+    def test_time_shift_for_individual_channels(self):
+        sig =  pyspt.Signal(range(101),1)
+        sig |= sig
+
+        sig2 = pyspt.dsp.time_shift(sig, [-10, 10] )   # list
+        sig2 = pyspt.dsp.time_shift(sig, np.array([-10, 10])) # array of int
+        sig2 = pyspt.dsp.time_shift(sig, np.array([-1.10, 10.1]) )        # array of float
+
+    def test_sample_shift_for_individual_channels(self):
+        sig =  pyspt.Signal(range(101),1)
+        sig |= sig
+        sig2 = pyspt.dsp.sample_shift(sig, [-10, 10] )   # list
+        sig2 = pyspt.dsp.sample_shift(sig, np.array([-10, 10])) # array of int
+        sig2 = pyspt.dsp.sample_shift(sig, np.array([-1.10, 10.1]) )        # array of float
+
+    def test_time_shift(self):    
+        plt.figure()
+        sig =  pyspt.Signal(range(101),1)
+        sig |= sig
+        plot = False
+        if plot:
+            # % matplotlib
+            sig.plot_time(ax=plt.subplot(511))
+            plt.title('original')
+         
+        sig2 = pyspt.dsp.sample_shift(sig, 20, cyclic=True)
+        if plot:
+            sig2.plot_time(ax=plt.subplot(523))
+            plt.title('cyclic shift +20 samples')
+        sig2 = pyspt.dsp.sample_shift(sig, 20, cyclic=False)
+        if plot:
+            sig2.plot_time(ax=plt.subplot(524))
+            plt.title('shift +20 samples')
+            
+        sig2 = pyspt.dsp.sample_shift(sig, -20, cyclic=True)
+        if plot:
+            sig2.plot_time(ax=plt.subplot(525))
+            plt.title('cyclic shift -20 samples')
+        sig2 = pyspt.dsp.sample_shift(sig, -20, cyclic=False)
+        if plot:
+            sig2.plot_time(ax=plt.subplot(526))
+            plt.title('shift -20 samples')
+        
+        sig2 = pyspt.dsp.time_shift(sig, 40, cyclic=True)
+        if plot:
+            sig2.plot_time(ax=plt.subplot(527))
+            plt.title('cyclic shift 40 sec')
+        sig2 = pyspt.dsp.time_shift(sig, 40, cyclic=False)
+        if plot:
+            sig2.plot_time(ax=plt.subplot(528))
+            plt.title('shift 40 sec')
+        
+        sig2 = pyspt.dsp.time_shift(sig, -40, cyclic=True)
+        if plot:
+            sig2.plot_time(ax=plt.subplot(529))
+            plt.title('cyclic shift -40 sec')
+        sig2 = pyspt.dsp.time_shift(sig, -40, cyclic=False)
+        if plot:
+            sig2.plot_time(ax=plt.subplot(5,2,10))
+            plt.title('shift -40 sec')
+            
+    def test_frequency_mixer(self):
+        mixingFreq = 200e3
+        inputSignal = pyspt.generate_sine() 
+        outputSignal2 = pyspt.dsp.frequency_mixer(inputSignal, mixingFreq)
+                
+        
 
 
 class TestOtherFunctions(unittest.TestCase):

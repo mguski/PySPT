@@ -16,9 +16,10 @@ def time_shift(obj, shiftTime, cyclic=True):
         
 def sample_shift(obj, nSamples, cyclic=True):
     """ Applies sample shift to signal that outSig[n] = inSig[n - nSamples]. """
-    output = obj.copy    
+    output = obj.copy 
+    nSamples = np.round(nSamples) # rounc and convert to array
     # nSamples one value => same shift for all channels
-    if isinstance(nSamples, np.int) or isinstance(nSamples, np.float) or nSamples.size == 1:
+    if nSamples.size == 1:
         nSamples = int(nSamples)
         if cyclic:
             output.timeData = np.roll(output.timeData, -nSamples, axis=1)
@@ -29,7 +30,7 @@ def sample_shift(obj, nSamples, cyclic=True):
                 output.timeData = output.timeData[:, nSamples:]        
         return output
     # each channel individual shift    
-    elif np.array(nSamples).size == obj.nChannels:
+    elif nSamples.size == obj.nChannels:
         tData_ref = output.timeData_reference
         for iChannel in range(obj.nChannels):
             if cyclic:
@@ -70,9 +71,9 @@ def frequency_mixer(inputSignal, mixingFrequency):
     return outputSignal
    
 def hilbert_transform(obj):
-    """ Hilbert transform of the signal. """
+    """ The Hilbert transform derives the analytic representation of a real signal. """
     output = obj.copy
-    output.freqData = np.multiply(output.freqData, -1j*np.sign(obj.freqVector))
+    output.freqData = np.multiply(output.freqData, 0.5*(np.sign(obj.freqVector)+1))
     return output   
 
 
