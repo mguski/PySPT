@@ -22,70 +22,12 @@ help(pyspt)
 # %%
 
 
-sr = 10000
-phi = [ 2*np.pi*30*t / sr for t in range(3002) ]
-# vec = np.sin(2*np.pi*30*tVec)
-vec = np.sin(phi)+0.00
-
-s = pyspt.Signal(vec, sr, comment='sine test signal')
-r = pyspt.Signal(vec*2, sr, comment='sine test signal 2')
-
-#s.plot_time_freq()
-# s.plot_freq()
-
-# %% copy / reference 
-r = pyspt.generate_sine()
-t = r.copy # return a copy
-
-if  not (r.timeData == t.timeData).all():
-    raise ValueError('Copy results in different timeData values')
-
-if  r.timeData_reference is t.timeData_reference:
-    raise ValueError('obj.copy returns only reference!')
-
-t = r # now t is only a new reference
-     
-if not r.timeData_reference is t.timeData_reference:
-    raise ValueError('error a = b  returns no reference!')
-
-# %%  timevector, freqVector, freq2index, time2index
-
-r = pyspt.generate_sine()
-
-r.timeVector
-r.freqVector
-
-testIdx = 1234
-if r.time2index(r.timeVector[testIdx]) != testIdx:
-    raise ValueError('time2index did not result in correct value')
-if r.freq2index(r.freqVector[testIdx]) != testIdx:
-    raise ValueError('freq2index did not result in correct value')
-
-
-# %% fft / ifft 
-
-r = pyspt.generate_sine() | pyspt.generate_sine(freq=10e3)
-t = r.copy
-
-t.fft()
-t.ifft()
 a = t - r
-if  np.max(np.absolute(a.timeData)) > 1e-14:
-    
-    a.plot_time()
-    raise ValueError('fft => ifft does not result in same values!')
-
-
 a = r - t
 
 
-# %% check rms() results
-tmp = pyspt.generate_sine(amplitude=1)
-if tmp.rms() - np.sqrt(0.5) > 1e-15:
-    raise ValueError('rms in time domain wrong')
-tmp.fft()
-if tmp.rms() - np.sqrt(0.5) > 1e-15:
-    raise ValueError('rms in freq domain wrong')
+
+
 
 
 # %% surface test if opertrs can be called without error
@@ -93,16 +35,6 @@ if tmp.rms() - np.sqrt(0.5) > 1e-15:
 r = pyspt.generate_sine()
 s = pyspt.generate_sine(freq=500)
 
-t = s.copy
-
-t = s + r
-t = s + 2
-t = s + 2.5
-t = 2 + s
-
-t += s
-t += 2
-t += 2.5
 
 
 t = s - r
