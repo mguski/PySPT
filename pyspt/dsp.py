@@ -17,7 +17,7 @@ def time_shift(obj, shiftTime, cyclic=True):
 def sample_shift(obj, nSamples, cyclic=True):
     """ Applies sample shift to signal that outSig[n] = inSig[n - nSamples]. """
     output = obj.copy 
-    nSamples = np.round(nSamples) # rounc and convert to array
+    nSamples = np.round(nSamples) # round and convert to array
     # nSamples one value => same shift for all channels
     if nSamples.size == 1:
         nSamples = int(nSamples)
@@ -34,7 +34,7 @@ def sample_shift(obj, nSamples, cyclic=True):
         tData_ref = output.timeData_reference
         for iChannel in range(obj.nChannels):
             if cyclic:
-                tData_ref[iChannel,:] = np.roll(output.timeData[iChannel, :], -int(nSamples[iChannel]), axis=1)
+                tData_ref[iChannel,:] = np.roll(output.timeData[iChannel, :], -int(nSamples[iChannel]))
             else:
                 obj.logger.error("time/sample_shift: only cyclic shifts are supported for individual shifts of channels.")  # TODO: smarter way than calling two functions with same input?
                 raise ValueError("time/sample_shift: only cyclic shifts are supported for individual shifts of channels.")
@@ -58,7 +58,7 @@ def resample(obj, newSamplingRate, method='fft', window=None):
        den = frac.denominator
        if num/den != newSamplingRate/obj.samplingRate:
            print("resampling not exact, error {} % ")
-       output.timeData = signal.resample_poly(output.timeData, num, den, axis=1, window=('kaiser', 5.0))
+       output.timeData = scipySignal.resample_poly(output.timeData, num, den, axis=1, window=('kaiser', 5.0))
        output.samplingRate *= num/den
        return output
    else:
@@ -73,7 +73,7 @@ def frequency_mixer(inputSignal, mixingFrequency):
 def hilbert_transform(obj):
     """ The Hilbert transform derives the analytic representation of a real signal. """
     output = obj.copy
-    output.freqData = np.multiply(output.freqData, 0.5*(np.sign(obj.freqVector)+1))
+    output.freqData = output.freqData * 0.5*(np.sign(obj.freqVector)+1)
     return output   
 
 

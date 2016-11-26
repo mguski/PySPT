@@ -35,7 +35,7 @@ import pyspt
 class TestPlotFunctions(unittest.TestCase):
  
     def test_plot_time(self):
-        r = pyspt.generate_sine()
+        r = pyspt.generate_sine(freq=1, samplingRate=40, nSamples=41)
         r.plot_time(show=False)
         
     def test_freq_time(self):
@@ -87,7 +87,7 @@ class TestDSPfunctions(unittest.TestCase):
         sig |= sig
         plot = False
         if plot:
-            # % matplotlib
+            #% matplotlib
             sig.plot_time(ax=plt.subplot(511))
             plt.title('original')
          

@@ -57,7 +57,7 @@ class Signal:
     """
     def __init__(self, data, samplingRate, iqInterleaved=False, comment=''):
         # np.concatenate if type(data) is list?
-        data = np.matrix(data)
+        data = np.array(np.atleast_2d(data))
         if iqInterleaved:  
             data = data[:,0::2] + 1j* data[:,1::2]
                 
@@ -161,7 +161,7 @@ class Signal:
             Applies  fft norm for power signals so that spectrum gives rms values.
             """
         if self._domain == 'time':
-            self._data = np.matrix(np.fft.fftshift(np.fft.fft(self._data), axes=1)) / self.nSamples / np.sqrt(2) # TODO: don't scale DC value??
+            self._data = np.fft.fftshift(np.fft.fft(self._data), axes=1) / self.nSamples / np.sqrt(2) # TODO: don't scale DC value??
             self._domain = 'freq'
             self.logger.info('fft: changing _domain from time to freq')
         elif self._domain == 'freq':
@@ -174,7 +174,7 @@ class Signal:
     def ifft(self):
         """ Function transforms internal _data into time domain (if necessary). """
         if self._domain == 'freq':
-            self._data = np.matrix(np.fft.ifft(np.fft.ifftshift(self._data, axes=1))) * self.nSamples * np.sqrt(2) # TODO:don't scale DC value?
+            self._data = np.fft.ifft(np.fft.ifftshift(self._data, axes=1)) * self.nSamples * np.sqrt(2) # TODO:don't scale DC value?
             self._domain = 'time'
             self.logger.info('ifft: changing _domain from freq to time')
         elif self._domain == 'time':
@@ -187,43 +187,43 @@ class Signal:
     
     @property 
     def timeData(self):
-        """ Returns copy of signal data in time domain. Output is matrix of size nChannels x nSamples. """
+        """ Returns copy of signal data in time domain. Output is array of size nChannels x nSamples. """
         self.ifft()
         return self._data.copy()
 
     @property 
     def timeData_reference(self):
-        """ Returns reference of signal data in time domain. Output is matrix of size nChannels x nSamples. """
+        """ Returns reference of signal data in time domain. Output is array of size nChannels x nSamples. """
         self.ifft()
         return self._data
  
     @timeData.setter
     def timeData(self, vec):
-        self._data = np.matrix(vec.copy())
+        self._data = np.atleast_2d(vec.copy())
         self._domain = 'time'
     
     
     @property         
     def freqData_reference(self):
-        """ Returns reference of signal data in frequency domain. Output is matrix of size nChannels x nSamples. """
+        """ Returns reference of signal data in frequency domain. Output is array of size nChannels x nSamples. """
         self.fft()
         return self._data
         
     @freqData_reference.setter         
     def freqData_reference(self, freqData):
-        self._data = np.matrix(freqData)
+        self._data = np.atleast_2d(freqData)
         self._domain = 'freq'       
         
         
     @property         
     def freqData(self):
-        """ Returns copy of signal data in frequency domain. Output is matrix of size nChannels x nSamples. """
+        """ Returns copy of signal data in frequency domain. Output is array of size nChannels x nSamples. """
         self.fft()
         return self._data.copy()
 
     @freqData.setter
     def freqData(self, vec):
-        self._data = np.matrix(vec.copy())
+        self._data = np.atleast_2d(vec.copy())
         self._domain = 'freq'
 
 
