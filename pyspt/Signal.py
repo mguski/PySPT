@@ -238,7 +238,6 @@ class Signal:
        xValues  = self.timeVector
        
        onlyRealValues = np.isrealobj(plotData) or np.isreal(plotData).all() # first test for real object to be fatser
-       print(onlyRealValues)
        if not onlyRealValues:
            plotData = np.reshape(np.hstack((np.real(plotData),np.imag(plotData))), (self.nChannels*2,self.nSamples))
            legendList = [ chName+post for chName in self.channelNames for post in [' (real)' , ' (imag)' ]]
@@ -246,16 +245,53 @@ class Signal:
            legendList = self.channelNames
 
        if dB:
-         plotData
          plotData = 20*np.log10(np.absolute(plotData))
          yLabelString  = 'amplitude in dB'
        else:
          yLabelString  = 'amplitude'    
     
        xLabelString = 'time in s'
-       titleString = self.comment
-    
-    # def plot_data(ax, xValues, plotData, xLabelString, yLabelString, legendList, titleString, show, onlyRealValues)
+       
+       self._plot_data(ax, xValues, plotData, xLabelString, yLabelString, legendList, show, onlyRealValues, None)
+       
+       
+    def plot_freq(self,  show=True, ax=None, dB=True ):
+       """ Plots signal in frequency domain (using PlotGUI class)."""
+       if ax is None:   
+           return PlotGUI(self, plotDomain=['freq', 'freq_dB'][dB])
+           
+       plotData = self.freqData
+       xValues  = self.freqVector       
+ 
+       onlyRealValues = dB or np.isrealobj(plotData) or np.isreal(plotData).all() # first test for real object to be fatser
+
+       if not onlyRealValues and not dB:
+           plotData = np.reshape(np.hstack((np.real(plotData),np.imag(plotData))), (self.nChannels*2,self.nSamples))
+           legendList = [ chName+post for chName in self.channelNames for post in [' (real)' , ' (imag)' ]]
+       else:
+           legendList = self.channelNames 
+ 
+       if dB:
+         plotData = 20*np.log10(np.absolute(plotData))
+         yLabelString  = 'magintude in dB'
+       else:
+         yLabelString  = 'magintude' 
+         
+       xLabelString = 'frequency in Hz'
+       
+       if dB: 
+           yLimRange = 200
+       else:
+           yLimRange = None
+           
+       self._plot_data(ax, xValues, plotData, xLabelString, yLabelString, legendList, show, onlyRealValues, yLimRange)
+
+
+          
+       
+       
+    # internal function to plot the data
+    def _plot_data(self, ax, xValues, plotData, xLabelString, yLabelString, legendList, show, onlyRealValues, yLimRange):
        ax.xaxis.set_major_formatter( FuncFormatter(Signal._niceUnitPrefix_formatter) ) 
 
        defaultColorCycle = ['b', 'g', 'r', 'y']
@@ -269,54 +305,28 @@ class Signal:
        lineHandles = ax.plot(xValues, plotData.T  , marker=".")
        
        if onlyRealValues:
-           ax.channelHandleList = lineHandles
+           self.PlotGUI_handle.channelHandleList = lineHandles
        else:
-           ax.channelHandleList  = [ [lineHandles[iCh], lineHandles[iCh+1]]  for iCh in range(int(len(lineHandles)/2)) ]           
+           self.PlotGUI_handle.channelHandleList  = [ [lineHandles[2*iCh], lineHandles[2*iCh+1]]  for iCh in range(int(len(lineHandles)/2)) ]           
     
        ax.grid(True)
        ax.set_xlim([xValues[0], xValues[-1]])
        
        plt.xlabel(xLabelString)
-       plt.legend(legendList, loc=0)
+       self.PlotGUI_handle.legendHandle = plt.legend(legendList, loc=0)
        plt.ylabel(yLabelString)	
-       plt.title(titleString)
+       plt.title(self.comment)
+       
+       if yLimRange:
+            current_yLimit = ax.get_ylim()
+            ax.set_ylim((max(current_yLimit[0], current_yLimit[1]-yLimRange) , current_yLimit[1]))
+
+       
        if show:
           plt.show()        
  
        
-    def plot_freq(self,  show=True, ax=None, dB=True ):
-       """ Plots signal in frequency domain (using PlotGUI class)."""
-       if ax is None:   
-           return PlotGUI(self, plotDomain=['freq', 'freq_dB'][dB])
-           
-       ax.xaxis.set_major_formatter( FuncFormatter(Signal._niceUnitPrefix_formatter) ) 
- 
-       if dB:
-         plotData_real = 20*np.log10(np.absolute(np.real(self.freqData)))
-         plotData_imag = 20*np.log10(np.absolute(np.imag(self.freqData)))
-         yLabelString  = 'magintude in dB'
-       else:
-         plotData_real = np.real(self.freqData)
-         plotData_imag = np.imag(self.freqData)
-         yLabelString  = 'magnitude'
-    
-       ax.plot(self.freqVector, plotData_real.T , label='real', marker=".")
-       ax.plot(self.freqVector, plotData_imag.T , label='imag', marker=".")
-    
-       plt.grid(True)
-       ax.set_xlim([self.freqVector[1], self.freqVector[-1]])
-
-        # limit ylim range to 200 dB
-       if dB: 
-            current_yLimit = ax.get_ylim()
-            ax.set_ylim((max(current_yLimit[0], current_yLimit[1]-200) , current_yLimit[1]))
-            
-       plt.xlabel('frequency in Hz')
-       plt.legend(loc=0)
-       plt.ylabel(yLabelString)	
-       plt.title(self.comment)
-       if show:
-          plt.show()   
+   
        
        
     def plot_spectrogram(self,  show=True, ax=None, dB=True, nSamplesWindow='auto', windowType=('tukey', 0.25) ):
