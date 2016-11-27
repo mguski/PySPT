@@ -23,7 +23,9 @@ import numpy as np
 import logging
 from scipy import signal as scipySignal
 import matplotlib.pyplot as plt
+
 from matplotlib.ticker import FuncFormatter
+from cycler import cycler
 
 from .PlotGUI import PlotGUI
 
@@ -232,31 +234,52 @@ class Signal:
        if ax is None:   
            return PlotGUI(self, plotDomain=['time', 'time_dB'][dB])
     
-       ax.xaxis.set_major_formatter( FuncFormatter(Signal._niceUnitPrefix_formatter) ) 
-         
+       plotData = self.timeData
+       xValues  = self.timeVector
+       
+       onlyRealValues = np.isrealobj(plotData) or np.isreal(plotData).all() # first test for real object to be fatser
+       print(onlyRealValues)
+       if not onlyRealValues:
+           plotData = np.reshape(np.hstack((np.real(plotData),np.imag(plotData))), (self.nChannels*2,self.nSamples))
+           legendList = [ chName+post for chName in self.channelNames for post in [' (real)' , ' (imag)' ]]
+       else:
+           legendList = self.channelNames
+
        if dB:
-         plotData_real = 20*np.log10(np.absolute(np.real(self.timeData)))
-         plotData_imag = 20*np.log10(np.absolute(np.imag(self.timeData)))
+         plotData
+         plotData = 20*np.log10(np.absolute(plotData))
          yLabelString  = 'amplitude in dB'
        else:
-         plotData_real = np.real(self.timeData)
-         plotData_imag = np.imag(self.timeData)
-         yLabelString  = 'amplitude'
-       # TODO:
-         # - dont plot imag if  == 0
-         # - change oder to re im re im, 
-         # - re, im with same colors but different lineStyle
-         # - set legend labels later at once
-       ax.plot(self.timeVector, plotData_real.T  , marker=".")
-       ax.plot(self.timeVector, plotData_imag.T , marker=".", lineStyle="dotted")
+         yLabelString  = 'amplitude'    
+    
+       xLabelString = 'time in s'
+       titleString = self.comment
+    
+    # def plot_data(ax, xValues, plotData, xLabelString, yLabelString, legendList, titleString, show, onlyRealValues)
+       ax.xaxis.set_major_formatter( FuncFormatter(Signal._niceUnitPrefix_formatter) ) 
+
+       defaultColorCycle = ['b', 'g', 'r', 'y']
+       lineStyles = ['-', '--']
+       if onlyRealValues:
+           cycler2use = (cycler('color', defaultColorCycle ) )
+       else:
+           cycler2use = (cycler('color', [ c  for c in defaultColorCycle for i in range(2)]) + cycler('linestyle', lineStyles*len(defaultColorCycle)))
+       ax.set_prop_cycle(cycler2use)
+       
+       lineHandles = ax.plot(xValues, plotData.T  , marker=".")
+       
+       if onlyRealValues:
+           ax.channelHandleList = lineHandles
+       else:
+           ax.channelHandleList  = [ [lineHandles[iCh], lineHandles[iCh+1]]  for iCh in range(int(len(lineHandles)/2)) ]           
     
        ax.grid(True)
-       ax.set_xlim([self.timeVector[0], self.timeVector[-1]])
-       ax.set
-       plt.xlabel('time in s')
-       plt.legend([ chName+post for post in [' (real)' , ' (imag)' ] for chName in self.channelNames], loc=0)
+       ax.set_xlim([xValues[0], xValues[-1]])
+       
+       plt.xlabel(xLabelString)
+       plt.legend(legendList, loc=0)
        plt.ylabel(yLabelString)	
-       plt.title(self.comment)
+       plt.title(titleString)
        if show:
           plt.show()        
  

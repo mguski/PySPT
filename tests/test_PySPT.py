@@ -19,43 +19,38 @@ del sys.modules['pyspt']
 import pyspt
 help(pyspt)
 
+
 # %%
 
-a = t - r
-a = r - t
-
-# %% how to organize multiple channels ??
-oneCh = np.atleast_2d(np.r_[1:6]  /10  +1)
-print("one chanel:\n {}\n  shape: {}\n".format(oneCh, oneCh.shape))
-
-twoCh_v1 = np.atleast_2d((np.vstack((oneCh, oneCh+1))))
-print("two chanels version 1:\n {}\n  shape: {}\n".format(twoCh_v1, twoCh_v1.shape))
-# - shape changes
-# + console output looks intuitive
-# + direct access k-th ch with self._data[k-1]  twoCh_v1[1] 
+testSig = np.array(range(80)).reshape((8,10))
+t = pyspt.Signal(testSig, 1)
 
 
-twoCh_v2 = np.vstack((oneCh, oneCh+1)).T
-print("two chanels version 2:\n {}\n  shape: {}\n".format(twoCh_v2, twoCh_v2.shape))
-# + first index of shape is always nSamples
-# - console output missleading
-
-"""
-# _data, time/freq-Data as matrix or array???
-
-# pro matrix
- - for arrays: nSamples not at same posioon in shape for one or more channels
- - for arrays: console output lines up all n-th samples and not signale channels
+plt.plot(testSig.T)
 
 
-# pro array
- - output of most functions is array
-   i.e. <array> = np.fft(<matrix>)
- - elementwise operations nicer:
-   sigAtPoint.freqData[iAntenna] *= np.exp(-1j*2*np.pi*freqVec*timeDiff_vector[iAntenna])
-   sigAtPoint.freqData[iAntenna] = np.multiply(sigAtPoint.freqData[iAntenna], np.exp(-1j*2*np.pi*freqVec*timeDiff_vector[iAntenna]))
- - freqVector, timeData, rms also return arrays
-   
-   
-"""
+# %%
 
+
+
+del sys.modules['pyspt'] 
+import pyspt
+
+defaultColorCycle = ['r', 'g', 'b', 'y']
+lineStyles = ['-', '--']
+
+
+imagCycler = (cycler('color', [ c  for c in defaultColorCycle for i in range(2)]) + cycler('linestyle', lineStyles*len(defaultColorCycle)))
+ax = plt.subplot(111)
+ax.set_prop_cycle(imagCycler)
+
+lineHandles = plt.plot(testSig.T)
+# %%
+
+
+del sys.modules['pyspt'] 
+import pyspt
+
+testSig = np.array(range(40)).reshape((4,10))
+t = pyspt.Signal(testSig*(1+1j*0.9), 1)
+t.plot_time()

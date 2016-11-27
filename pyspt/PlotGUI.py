@@ -24,6 +24,8 @@ class PlotGUI:
         self.fgh    = plt.figure(facecolor='0.99') # help to distinguish beween PlotGUI and normal plot
         plt.suptitle("PySPT GUI")
         self.axh    = plt.subplot(111)
+        self.axh.channelHandleList = []
+        self.currentChannel = 'all'
         self.cid       = self.fgh.canvas.mpl_connect('key_press_event', self._keyCallback)
         self.signal = signalObject
         self.plotDomain = plotDomain
@@ -53,6 +55,16 @@ class PlotGUI:
             
             self.plotDomain
             self.updatePlot()
+        elif event.key == '*': # or l? or l for legend?            
+            if self.currentChannel == "all":
+                self.currentChannel = 0
+            else:
+                self.currentChannel = (self.currentChannel + 1) %  len(self.axh.channelHandleList )
+            self.update_visible_channels()    
+                
+        elif event.key == 'a': # or l? or l for legend?            
+            self.currentChannel = "all"               
+            self.update_visible_channels()
    #     elif event.key == 'h':
             # f freq
             # t time 
@@ -63,7 +75,19 @@ class PlotGUI:
             # toggel dB / lin?
             # set axis limits
     #    elif event.key == 'down':
-            
+    def update_visible_channels(self):
+        nChannels = len(self.axh.channelHandleList )
+        if self.currentChannel == 'all':
+            channelVisList = [True for k in range(nChannels)]
+        else:
+            channelVisList = [self.currentChannel==iCh for iCh in range(nChannels)]
+        for iChannel, channelHandler in enumerate(self.axh.channelHandleList ):
+            if isinstance(channelHandler, list):
+                for iLine in range(len(channelHandler)):
+                    channelHandler[iLine].set_visible(channelVisList[iChannel])
+            else:
+                channelHandler.set_visible(channelVisList[iChannel])
+        
     
     def updatePlot(self):
         
