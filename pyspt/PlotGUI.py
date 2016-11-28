@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Nov 25 17:06:58 2016
+Module for interactive plotting GUI.
 
+Created on Fri Nov 25 17:06:58 2016
 @author: mguski
+
 """
 import  matplotlib.pyplot as plt
-
+from matplotlib.patches import Polygon
+from .meta_functions import num2string
+import numpy as np
 
 class PlotGUI:
     """    Class to plot Signals in an interactive GUI.    
@@ -113,15 +117,27 @@ class PlotGUI:
             self.show_help()
             
         elif event.key == 'l':
-            self.legendHandle.set_visible(not self.legendHandle.get_visible())    
-   #     elif event.key == 'h':
-            # f freq
-            # t time 
-            # h help
+            self.legendHandle.set_visible(not self.legendHandle.get_visible())
+            
+        elif event.key == 'm':
+            
+            unitDict = dict(time=['s', ''], time_dB=['s','dB'], freq=['Hz', ''], freq_dB=['Hz','dB'], spec_dB=['s','Hz'], spec=['s','Hz'])
+            if self.plotDomain in unitDict:
+                xUnit, yUnit = unitDict[self.plotDomain]
+            else:
+                xUnit = yUnit = ""
+                
+                
+#            self.survivalZoneForObjects = MeasureInPlot(self.axh, xUnit=xUnit)
+            MeasureInPlot(self.axh, xUnit=xUnit, yUnit=yUnit)
+            
+
+
+
             # cursors?
-            # legend?
-            # channel prev / next / all?
-            # toggel dB / lin?
+
+
+
             # set axis limits
     #    elif event.key == 'down':
     def update_visible_channels(self):
@@ -177,3 +193,93 @@ class PlotGUI:
         self.helpTextBox = self.axh.text(0.5, 0.5, helpText, transform=self.axh.transAxes, fontsize=14,
         verticalalignment='center', horizontalalignment='center',multialignment="left", bbox=props, fontname='monospace')
     
+class MeasureInPlot(object):
+    """ Class to measure signal in a plot. """
+    def __init__(self, ax, xUnit='', yUnit=''):
+        self.ax = ax
+        self.fig = self.ax.get_figure()
+        self.lx = ax.axhline(color='k')  # the horiz line
+        self.ly = ax.axvline(color='k')  # the vert line
+        self.start_x = []
+        self.start_y = []
+        self.status = "set_start"
+        self.xUnit = xUnit
+        self.yUnit = yUnit        
+        self.cid_move  = self.fig.canvas.mpl_connect('motion_notify_event', self.set_start_point)
+        self.cid_click = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
+
+        props = dict(boxstyle='round', facecolor='wheat') #, alpha=0.8)
+        self.txt = ax.text(0.05, 0.95, '', transform=self.fig.transFigure, verticalalignment='top', horizontalalignment='left',multialignment="left", bbox=props, fontname='monospace')
+        
+        plt.ginput(3) # not nice but could not think of better way
+               
+
+    def set_start_point(self, event):
+
+        if not event.inaxes:
+            return
+
+        x, y = event.xdata, event.ydata
+        # update the line positions
+        self.lx.set_ydata(y)
+        self.ly.set_xdata(x)
+
+        self.txt.set_text('Click to set start point:\nx={}, y={}'.format(num2string(x), num2string(y)))
+        plt.draw()
+        
+    def set_end_point(self, event):
+        if not event.inaxes:
+            return
+        yMin = min(self.start_y, event.ydata)
+        yMax = max(self.start_y, event.ydata)
+        xMin = min(self.start_x, event.xdata)
+        xMax = max(self.start_x, event.xdata)
+        polygonData = np.array([[xMin, yMin],[xMin, yMax],[xMax, yMax],[xMax, yMin], [xMin, yMin]])
+        self.span_polygon.set_xy(polygonData)
+        n2s = num2string
+        if self.xUnit == "Hz":
+            inverse_xUnit = "s"
+        elif self.xUnit == "s":
+            inverse_xUnit = "Hz"
+        elif self.xUnit == "":
+            inverse_xUnit = ""
+        else:
+            inverse_xUnit = "1/" + self.xUnit
+        
+        infoText =  'Start : x={}{}, y={}{}\n'.format(n2s(self.start_x), self.xUnit, n2s(self.start_y), self.yUnit) 
+        infoText += 'End   : x={}{}, y={}{}\n'.format(n2s(event.xdata),  self.xUnit, n2s(event.ydata),  self.yUnit)
+        infoText += 'Diff  : x={}{}, y={}{}\n'.format(n2s(event.xdata-self.start_x),  self.xUnit, n2s(event.ydata-self.start_y),  self.yUnit)
+        infoText += '1 / delta_x = {}{}'.format(n2s(event.xdata-self.start_x),  inverse_xUnit)
+        self.txt.set_text(infoText)
+        plt.draw()
+
+
+    def onclick(self, event):
+        #print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %  (event.button, event.x, event.y, event.xdata, event.ydata))
+        if event.button == 1:
+            if self.status == 'set_start':
+                # close crosshair         
+                self.lx.set_visible(False)
+                self.ly.set_visible(False)
+                
+                self.start_x = event.xdata
+                self.start_y = event.ydata
+                polygonData = np.array([[self.start_x, self.start_y],[self.start_x, self.start_y],[self.start_x, self.start_y],[self.start_x, self.start_y], [self.start_x, self.start_y]])
+                self.span_polygon = Polygon(polygonData, facecolor='0.75', alpha=0.5 ) #, transform=self.ax.transData)
+                self.ax.add_patch(self.span_polygon)
+                self.status = 'set_end'
+                self.fig.canvas.mpl_disconnect(self.cid_move)
+                self.cid_move = self.fig.canvas.mpl_connect('motion_notify_event', self.set_end_point)
+            elif self.status == 'set_end':               
+                #plt.axhspan(yMin, yMax, xmin=xMin, xmax=xMax, facecolor='0.5', alpha=0.5)
+                self.fig.canvas.mpl_disconnect(self.cid_move)
+                self.status = 'finished'
+            elif self.status == 'finished':
+                self.fig.canvas.mpl_disconnect(self.cid_click) 
+                self.close()
+                
+    def close(self):
+        self.span_polygon.remove()
+        self.lx.remove()
+        self.ly.remove()
+        self.txt.remove()

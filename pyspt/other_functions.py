@@ -16,7 +16,7 @@ from .Signal import Signal
 
 
 
-# TOOLS:        
+# Generate:        
 def generate_sine(freq=30e3, samplingRate=1e6, nSamples=50e3, amplitude=1.0, phaseOffset=0):
     """ Generates sine signal. """
     name ='sine [{}Hz]'.format(Signal._niceUnitPrefix_formatter(freq,0))    
@@ -32,7 +32,7 @@ def generate_noise(samplingRate=1e6, nSamples=int(50e3), scale=1.0, mean=0):
     noise.channelNames = [name]
     return noise
     
-    
+# other    
 def merge(listOfSignals):
     """ Merges list of Signal objects into one object with multiple channels. """
     nItems = len(listOfSignals)

@@ -497,6 +497,7 @@ class Signal:
                
     def _niceUnitPrefix_formatter(value, pos):
         """ Formater function to retun string with SI unit prefixes (kilo, Mega,...) """
+        # TODO use (other_functions).num2string
         if value == 0:
             return '0'
         

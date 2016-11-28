@@ -12,6 +12,8 @@ import pyspt
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
+import importlib
+%matplotlib
 # %%
 
 # reload file 
@@ -48,9 +50,17 @@ lineHandles = plt.plot(testSig.T)
 # %%
 
 
-del sys.modules['pyspt'] 
+#del sys.modules[] 
+#import pyspt
+
+#importlib.reload(pyspt)
 import pyspt
+import numpy as np
 
 testSig = np.array(range(40)).reshape((4,10))
 t = pyspt.Signal(testSig*(1+1j*0.9), 1)
-t.plot_time()
+s = pyspt.generate_sine()
+s.plot_time()
+#t = pyspt.Signal(testSig, 1)
+#t.plot_freq()
+
