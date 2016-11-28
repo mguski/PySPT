@@ -57,7 +57,7 @@ class Signal:
              Indexed Assignment	obj[k] = v	setitem(obj, k, v)
              Negation (Arithmetic)	- a	neg(a)
     """
-    def __init__(self, data, samplingRate, iqInterleaved=False, comment=''):
+    def __init__(self, data, samplingRate, iqInterleaved=False, comment='', domain='time'):
         # np.concatenate if type(data) is list?
         data = np.array(np.atleast_2d(data))
         if iqInterleaved:  
@@ -65,7 +65,7 @@ class Signal:
                 
         self._data         = data
         self.samplingRate  = samplingRate
-        self._domain       = 'time'
+        self._domain       = domain
         self.comment       = comment
         self._channelNames = ["ch {}".format(iCh) for iCh in range(self.nChannels)]
         self.logger        = logging.getLogger("Signal")
@@ -467,7 +467,7 @@ class Signal:
     def sum(self):
          """ Sums up all channel of one object. """
          if self.nChannels > 1:
-             self._data = np.sum(self._data, axis=0)
+             self._data = np.sum(self._data, axis=0, keepdims=True)
          else:
              self.logger.warning('sum is doing nothing, only one channel')
     
@@ -492,7 +492,9 @@ class Signal:
     @property
     def copy(self):
         """ Returns a deep(?) copy of the object."""
-        return Signal(self.timeData.copy(), self.samplingRate, comment=self.comment ) # TODO: keep upto date: channelNames
+        output = Signal(self._data.copy(), self.samplingRate, comment=self.comment, domain=self._domain )
+        output._channelNames = self._channelNames.copy()
+        return output
 
                
     def _niceUnitPrefix_formatter(value, pos):
