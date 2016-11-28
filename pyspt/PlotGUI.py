@@ -17,6 +17,7 @@ class PlotGUI:
         Shortcuts:
               d  : toggel between linear and dB
               l  : toggel visibility of legend  
+              m  : measure signal 
               h  : show help
               
         [change domain]    
@@ -245,11 +246,13 @@ class MeasureInPlot(object):
             inverse_xUnit = ""
         else:
             inverse_xUnit = "1/" + self.xUnit
-        
-        infoText =  'Start : x={}{}, y={}{}\n'.format(n2s(self.start_x), self.xUnit, n2s(self.start_y), self.yUnit) 
-        infoText += 'End   : x={}{}, y={}{}\n'.format(n2s(event.xdata),  self.xUnit, n2s(event.ydata),  self.yUnit)
-        infoText += 'Diff  : x={}{}, y={}{}\n'.format(n2s(event.xdata-self.start_x),  self.xUnit, n2s(event.ydata-self.start_y),  self.yUnit)
-        infoText += '1 / delta_x = {}{}'.format(n2s(event.xdata-self.start_x),  inverse_xUnit)
+      #  n2s =  lambda x: num2string(x, numberFormat=":3.2f")
+      #  def n2s(num): return num2string(num, numberFormat=":>3.2f")
+        n2s = num2string     
+        infoText =  'Start : x={:>7}{}, y={:>7}{}\n'.format(n2s(self.start_x), self.xUnit, n2s(self.start_y), self.yUnit) 
+        infoText += 'End   : x={:>7}{}, y={:>7}{}\n'.format(n2s(event.xdata),  self.xUnit, n2s(event.ydata),  self.yUnit)
+        infoText += 'Diff  : x={:>7}{}, y={:>7}{}\n'.format(n2s(event.xdata-self.start_x),  self.xUnit, n2s(event.ydata-self.start_y),  self.yUnit)
+        infoText += '1 / delta_x = {}{}'.format(n2s(1/(event.xdata-self.start_x)),  inverse_xUnit)
         self.txt.set_text(infoText)
         plt.draw()
 
