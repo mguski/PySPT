@@ -9,13 +9,13 @@ from scipy import signal as scipySignal
 
 # DSP
 def time_shift(obj, shiftTime, cyclic=True):
-    """ Applies time shift to signal that outSig(t) = inSig(t - shiftTime). """
+    """ Applies time shift to signal that outSig(t) = inSig(t + shiftTime). """
     nSamples = np.round(shiftTime*obj.samplingRate)
     output = sample_shift(obj, nSamples, cyclic=cyclic)
     return output
         
 def sample_shift(obj, nSamples, cyclic=True):
-    """ Applies sample shift to signal that outSig[n] = inSig[n - nSamples]. """
+    """ Applies sample shift to signal that outSig[n] = inSig[n + nSamples]. """
     output = obj.copy 
     nSamples = np.round(nSamples) # round and convert to array
     # nSamples one value => same shift for all channels
