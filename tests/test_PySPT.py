@@ -59,8 +59,36 @@ import numpy as np
 
 testSig = np.array(range(40)).reshape((4,10))
 t = pyspt.Signal(testSig*(1+1j*0.9), 1)
-s = pyspt.generate_sine()
+s = pyspt.generate_sine(freq=50)
 s.plot_time()
 #t = pyspt.Signal(testSig, 1)
 #t.plot_freq()
+
+# %%
+import pyspt
+s = pyspt.generate_sine(freq=50)
+
+s.fft()
+t = s.copy
+s.ifft()
+t = s.copy
+
+s |= s
+t = s.copy
+s.fft()
+t = s.copy
+s.ifft()
+t = s.copy
+# %% 
+
+
+s = pyspt.generate_sine(freq=50)
+t = s.copy
+
+s.freqData = s.freqData * s.freqVector
+t = s.copy
+s.freqData = np.multiply(s.freqData ,  s.freqVector)
+t = s.copy
+
+
 
