@@ -236,7 +236,7 @@ class TestSignalClass(unittest.TestCase):
         self.assertTrue(np.max(np.absolute(difference.timeData)) < 1e-14, msg='fft => ifft does not result in same values!')
     
     def test_rms_results(self):
-        tmp = pyspt.generate_sine(nSamples=500e3, amplitude=1)
+        tmp = pyspt.generate_sine(nSamples=44100, amplitude=1, samplingRate=44100)
         self.assertTrue( tmp.rms() - np.sqrt(0.5) < 1e-15, msg='rms in time domain wrong')
         tmp.fft()
         self.assertTrue( tmp.rms() - np.sqrt(0.5) < 1e-15, msg= 'rms in freq domain wrong')

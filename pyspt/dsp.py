@@ -76,5 +76,70 @@ def hilbert_transform(obj):
     output.freqData = output.freqData * 0.5*(np.sign(obj.freqVector)+1)
     return output   
 
+def x_fade_spk(in_a, in_b, fade_vec):
+
+    if in_a.samplingRate != in_b.samplingRate:
+        print("Error: sampling rates not equal")
+
+    if in_a.nSamples != in_b.nSamples:
+        print("Error: nSamples not equal")
+
+    f0_idx = in_a.freq2index( fade_vec[0])
+    f1_idx = in_a.freq2index( fade_vec[1])
+
+    nBins = f1_idx - f0_idx
+    winFcn = np.hanning(nBins*2+1)
+    fade_in = winFcn[:nBins+1]
+    fade_out = winFcn[nBins:]
+
+    # TODO multiple channels
+
+    output = in_a.copy
+    tmp_spk = output.freqData
+    tmp_spk[:, f0_idx:f1_idx+1] *= fade_out
+    tmp_spk[:, f0_idx:f1_idx + 1] += fade_in * in_b.freqData[:, f0_idx:f1_idx + 1]
+    tmp_spk[:, f1_idx:] = in_b.freqData[:, f1_idx:]
+    output.freqData = tmp_spk
+    return output
+
+
+def invert_spk(audio_object, freq_vec, beta=10**(-200/20)):
+
+    # b = audio_object.copy * 0 + beta
+    b = audio_object.copy
+    b.freqData = b.freqData*0 + beta
+    # a = audio_object.copy * 0 + 1
+    a = audio_object.copy
+    a.freqData = a.freqData * 0 + 1
+
+
+    f_low = freq_vec[0]
+    f_high = freq_vec[1]
+
+    epsilon = x_fade_spk(a, b, [f_low / np.sqrt(2), f_low])
+    if f_high < min(f_high * np.sqrt(2), epsilon.samplingRate / 2):
+        epsilon = x_fade_spk(epsilon, a, [f_high, min(f_high*np.sqrt(2), epsilon.samplingRate/2)])
+
+
+    epsilon.freqData = epsilon.freqData * np.max(np.abs(audio_object.freqData))**2 * 50 / 100
+    # epsilon = epsilon * max(np.abs(audio_object.freqData))**2 *50 /100
+
+    tmp_spk = audio_object.freqData
+
+    # kirkeby regularization
+    tmp_spk = np.conj(tmp_spk) / (np.conj(tmp_spk) * tmp_spk + epsilon.freqData)
+    output = audio_object.copy
+    output.freqData = tmp_spk
+    return output
+
+def normalize(audio_object):
+    audio_object.timeData = audio_object.timeData / np.max(np.abs(audio_object.timeData ))
+    return audio_object
+
+
+
+
+
+
 
       

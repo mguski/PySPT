@@ -63,18 +63,23 @@ class Signal:
         if iqInterleaved:  
             data = data[:,0::2] + 1j* data[:,1::2]
                 
-        self._data         = data
-        self.samplingRate  = samplingRate
-        self._domain       = domain
-        self.comment       = comment
+        self._data = data
+        self.samplingRate = samplingRate
+        self._domain = domain
+        self.comment = comment
         self._channelNames = ["ch {}".format(iCh) for iCh in range(self.nChannels)]
-        self.logger        = logging.getLogger("Signal")
+        self.signalType = 'power'
+        self.logger = logging.getLogger("Signal")
 
 
     @property    
     def nSamples(self):
         """ Number of samples in signal for each channel. Setting this value results in truncation or zero padding."""
-        return self._data.shape[1]
+        if self._domain == 'time':
+            return self._data.shape[1]
+        elif self._domain == 'freq':
+            return (self._data.shape[1] - 1)*2
+
         
     @nSamples.setter
     def nSamples(self, nSamplesNew):
@@ -131,8 +136,8 @@ class Signal:
     @property     
     def freqVector(self):
         """ Frequency vector in Hz. Calculated each time using nSamples and samplingRate."""
-        return np.fft.fftshift(np.fft.fftfreq(self.nSamples, 1/self.samplingRate ))
-        
+        return np.fft.rfftfreq(self.nSamples, 1/self.samplingRate )
+
     def time2index(self, time):
         """ Returns the index of the sample to the given time."""
         if time > self.length:
@@ -148,14 +153,11 @@ class Signal:
         if freq > self.samplingRate / 2 :
             self.logger.warning("freq2index: requested frequency ({}) is higher than half sampling rate ({})! Returning half sampling rate.".format(freq, self.samplingRate/2))
             return self.samplingRate / 2
-        if freq <  -self.samplingRate / 2 :
-            self.logger.warning("freq2index: requested frequency ({}) is lower than half sampling rate ({})! Returning minus half sampling rate.".format(freq, self.samplingRate/2))
-            return -self.samplingRate / 2
+        if freq <  0:
+            self.logger.warning("freq2index: requested frequency ({}) is lower than 0 Hz! Returning minus half sampling rate.".format(freq))
+            return 0
         return int(np.argmin(abs(self.freqVector - np.array(freq)))) # TODO: calculate directly without generating freqVector
-        
 
-
-    
     # convert internal data to frequency domain
     # freqData is effective value (not amplitude) for power signals (energy not supported TODO )
     def fft(self):
@@ -163,31 +165,59 @@ class Signal:
             Applies  fft norm for power signals so that spectrum gives rms values.
             """
         if self._domain == 'time':
-            self._data = np.fft.fftshift(np.fft.fft(self._data), axes=1) / self.nSamples / np.sqrt(2) # TODO: don't scale DC value??
+            if self.signalType == "power":
+                scale_factor = self.nSamples
+            elif self.signalType == "energy":
+                scale_factor = 1
+
+            else:
+                self.logger.error('fft: Unknown signalType: {}. Choose power or energy'.format(self.signalType))
+                raise ValueError('Unknown signalType: {}. Choose power or energy'.format(self.signalType))
+
+            tmp_data = np.fft.fft(self._data)
+            tmp_data = tmp_data[:, :int(self.nSamples/2+1)]
+            tmp_data[:, 1:-1] *= np.sqrt(2)
+            tmp_data[:, -1] *= (1 / np.sqrt(2))
+
+            self._data = tmp_data/ scale_factor
             self._domain = 'freq'
             self.logger.info('fft: changing _domain from time to freq')
         elif self._domain == 'freq':
             self.logger.debug('fft: _domain is already freq, doing nothing')
         else:
-            self.logger.error('fft: Unknown domain: {}. Choose time or freq'.format(self._domain))            
-            raise ValueError('Unknown domain: {}. Choose time or freq'.format(self._domain))        
-    
-    # convert internal data into time domain
+            self.logger.error('fft: Unknown domain: {}. Choose time or freq'.format(self._domain))
+            raise ValueError('Unknown domain: {}. Choose time or freq'.format(self._domain))
+
+            # convert internal data into time domain
+
     def ifft(self):
         """ Function transforms internal _data into time domain (if necessary). """
         if self._domain == 'freq':
-            self._data = np.fft.ifft(np.fft.ifftshift(self._data, axes=1)) * self.nSamples * np.sqrt(2) # TODO:don't scale DC value?
+
+            if self.signalType == "power":
+                scale_factor = self.nSamples
+            elif  self.signalType == "energy":
+                scale_factor = 1
+            else:
+                self.logger.error('fft: Unknown signalType: {}. Choose power or energy'.format(self.signalType))
+                raise ValueError('Unknown signalType: {}. Choose power or energy'.format(self.signalType))
+
+            tmp_spk = self._data * scale_factor
+            tmp_spk[:, 1:-1] *= (1 / np.sqrt(2))
+            tmp_spk[:, -1] *= np.sqrt(2)
+            tmp_spk = np.hstack( (tmp_spk, np.conj(tmp_spk[:, -2:0:-1])))
+
+            self._data = np.real(np.fft.ifft(tmp_spk) )
             self._domain = 'time'
             self.logger.info('ifft: changing _domain from freq to time')
         elif self._domain == 'time':
             self.logger.debug('fft: _domain is already time, doing nothing')
         else:
-            self.logger.error('fft: Unknown domain: {}. Choose time or freq'.format(self._domain))            
-            raise ValueError('Unknown domain: {}. Choose time or freq'.format(self._domain))      
+            self.logger.error('fft: Unknown domain: {}. Choose time or freq'.format(self._domain))
+            raise ValueError('Unknown domain: {}. Choose time or freq'.format(self._domain))
 
-    
-    
-    @property 
+    #
+    @property
     def timeData(self):
         """ Returns copy of signal data in time domain. Output is array of size nChannels x nSamples. """
         self.ifft()
@@ -252,7 +282,7 @@ class Signal:
     
        xLabelString = 'time in s'
        
-       self._plot_data(ax, xValues, plotData, xLabelString, yLabelString, legendList, show, onlyRealValues, None)
+       self._plot_data(ax, xValues, plotData, xLabelString, yLabelString, legendList, show, onlyRealValues, None, False)
        
        
     def plot_freq(self,  show=True, ax=None, dB=True ):
@@ -284,14 +314,14 @@ class Signal:
        else:
            yLimRange = None
            
-       self._plot_data(ax, xValues, plotData, xLabelString, yLabelString, legendList, show, onlyRealValues, yLimRange)
+       self._plot_data(ax, xValues, plotData, xLabelString, yLabelString, legendList, show, onlyRealValues, yLimRange, True )
 
 
           
        
        
     # internal function to plot the data
-    def _plot_data(self, ax, xValues, plotData, xLabelString, yLabelString, legendList, show, onlyRealValues, yLimRange):
+    def _plot_data(self, ax, xValues, plotData, xLabelString, yLabelString, legendList, show, onlyRealValues, yLimRange, xlog):
        ax.xaxis.set_major_formatter( FuncFormatter(Signal._niceUnitPrefix_formatter) ) 
 
        defaultColorCycle = ['b', 'g', 'r', 'y']
@@ -301,8 +331,13 @@ class Signal:
        else:
            cycler2use = (cycler('color', [ c  for c in defaultColorCycle for i in range(2)]) + cycler('linestyle', lineStyles*len(defaultColorCycle)))
        ax.set_prop_cycle(cycler2use)
-       
-       lineHandles = ax.plot(xValues, plotData.T  , marker=".")
+
+       if xlog:
+           lineHandles = ax.semilogx(xValues, plotData.T  )
+           xlimit = [xValues[1], xValues[-1]]
+       else:
+           lineHandles = ax.plot(xValues, plotData.T, marker=".")
+           xlimit = [xValues[0], xValues[-1]]
        
        if onlyRealValues:
            self.PlotGUI_handle.channelHandleList = lineHandles
@@ -310,7 +345,7 @@ class Signal:
            self.PlotGUI_handle.channelHandleList  = [ [lineHandles[2*iCh], lineHandles[2*iCh+1]]  for iCh in range(int(len(lineHandles)/2)) ]           
     
        ax.grid(True)
-       ax.set_xlim([xValues[0], xValues[-1]])
+       ax.set_xlim(xlimit)
        
        plt.xlabel(xLabelString)
        self.PlotGUI_handle.legendHandle = plt.legend(legendList, loc=0)
@@ -413,7 +448,7 @@ class Signal:
 
     def __mul__(self, value, commentSign='*'):
         if type(value) is Signal:
-            raise ValueError('TODO: think about domain!')
+            #raise ValueError('TODO: think about domain!')
 
             
             # TODO: export to separate function, do in current domain, if domains equal
@@ -422,7 +457,7 @@ class Signal:
             if self.nSamples != value.nSamples:
                 raise ValueError('Number of samples do not match. Unable to multiply.')
             output = self.copy
-            output.timeData += value.timeData
+            output.freqData = output.freqData * value.freqData
             output.comment = '(' + self.comment + ') '+ commentSign +' (' + value.comment + ')'
             return output
         elif isinstance(value, (np.int, float, np.complex)):
@@ -471,12 +506,12 @@ class Signal:
          else:
              self.logger.warning('sum is doing nothing, only one channel')
     
-    
+    # TODO add sifnal type enegery calculation
     def rms(self):
         """ Calculates root mean square (for continous waveform). """
         if self._domain == 'freq':
             # time: sqrt( 1/T *int(|s(t)|**2)) = sqrt( 1/T * sum(|s(n) * deltaT |**2)) with deltaT = 1 / samplingRate
-            rmsValues  = np.sqrt(np.sum(np.absolute(np.power(self._data ,2)), axis=1 )/self.length) 
+            rmsValues  = np.sqrt(np.sum(np.absolute(np.power(self._data ,2)), axis=1 )/self.length  )
              #            np.sqrt(np.sum(np.array(np.absolute(tmp.freqData) )**2 )*tmp.samplingRate/tmp.nSamples)
             self.logger.info('rms in time domain')
         elif self._domain == 'time':
