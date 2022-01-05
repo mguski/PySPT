@@ -130,6 +130,7 @@ def invert_spk(audio_object, freq_vec, beta=10**(-200/20)):
     tmp_spk = np.conj(tmp_spk) / (np.conj(tmp_spk) * tmp_spk + epsilon.freqData)
     output = audio_object.copy
     output.freqData = tmp_spk
+    output.comment = '1 / (' + output.comment + ')'
     return output
 
 def normalize(audio_object):

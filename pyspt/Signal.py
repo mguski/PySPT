@@ -336,7 +336,7 @@ class Signal:
            lineHandles = ax.semilogx(xValues, plotData.T  )
            xlimit = [xValues[1], xValues[-1]]
        else:
-           lineHandles = ax.plot(xValues, plotData.T, marker=".")
+           lineHandles = ax.plot(xValues, plotData.T) #, marker=".")
            xlimit = [xValues[0], xValues[-1]]
        
        if onlyRealValues:
@@ -550,7 +550,7 @@ class Signal:
         outputStr = strTemplate.format(np.round(value*multiplyFactor*1.0e12)/1.0e12, prefix )
         return outputStr
         
-        
+
         
     def __repr__(self):  
         """ Shows content summary for console output. """

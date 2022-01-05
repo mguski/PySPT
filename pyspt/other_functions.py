@@ -41,6 +41,9 @@ def generate_impulse(samplingRate=44100, signal_length=2, amplitude=1):
     return sig
 
 def generate_sweep(f_start=20, f_stop=20000, sampling_rate=44100, signal_length=3.0, zero_padding=0.3, method='logarithmic', bandwidth=2/12):
+
+
+    name = "Sweep {}Hz - {}Hz".format(Signal._niceUnitPrefix_formatter(f_start, 0), Signal._niceUnitPrefix_formatter(f_stop, 0))
     f_start = f_start * 2 ** (-bandwidth)
     f_stop = min(f_stop * 2 ** bandwidth, sampling_rate/2)
 
@@ -60,7 +63,6 @@ def generate_sweep(f_start=20, f_stop=20000, sampling_rate=44100, signal_length=
     # window = np.hanning(nSamples_win*2)
     # time_data[:nSamples_win] *= window[:nSamples_win]
 
-    name = "Sweep {} Hz - {} Hz".format(f_start, f_stop)
     sweep = Signal(time_data, sampling_rate, comment=name)
     sweep.channelNames = [name]
     return sweep
